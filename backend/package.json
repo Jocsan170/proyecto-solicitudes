@@ -1,0 +1,14 @@
+{
+  "name": "registro-solicitudes-backend",
+  "version": "1.0.0",
+  "description": "API de entrenamiento: registro de solicitudes ficticias (sin dependencias externas, solo Node.js)",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/client.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

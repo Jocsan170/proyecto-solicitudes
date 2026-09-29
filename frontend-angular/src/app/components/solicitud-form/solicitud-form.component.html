@@ -1,0 +1,77 @@
+<form [formGroup]="formulario" (ngSubmit)="enviar()" class="formulario-solicitud">
+  <p class="kicker-seccion">Paso 2 de 2</p>
+  <h2>Nueva solicitud de apoyo</h2>
+  <p class="texto-ayuda">
+    Describe el trámite. Al enviarla recibirás un número de seguimiento. El estado
+    y el chat se consultan en la ventanilla de seguimiento, no en esta pantalla.
+  </p>
+
+  <div class="comprobante" *ngIf="ultimoId">
+    <p class="comprobante-kicker">Solicitud registrada</p>
+    <p class="comprobante-numero">N.º de seguimiento {{ ultimoId }}</p>
+    <p class="comprobante-texto">
+      Guárdalo. Con este número consultas el estado y escribes a SENPRENDE.
+    </p>
+    <div class="acciones-comprobante">
+      <button type="button" class="boton-secundario" (click)="copiarNumero()">
+        {{ copiado ? 'Número copiado' : 'Copiar número' }}
+      </button>
+      <a class="boton-secundario" [routerLink]="['/seguimiento']" [queryParams]="{ numero: ultimoId }">
+        Ir al seguimiento
+      </a>
+    </div>
+  </div>
+
+  <div class="campo">
+    <label for="titulo">Asunto</label>
+    <input id="titulo" type="text" formControlName="titulo" placeholder="Ej. Apoyo para formalizar mi negocio" />
+    <p class="pista-campo">Entre 3 y 100 caracteres. Sé concreto.</p>
+    <p class="error" *ngIf="campoInvalido('titulo')">
+      <span *ngIf="tieneError('titulo', 'required')">El asunto es obligatorio.</span>
+      <span *ngIf="tieneError('titulo', 'minlength') || tieneError('titulo', 'maxlength')">
+        El asunto debe tener entre 3 y 100 caracteres.
+      </span>
+    </p>
+  </div>
+
+  <div class="campo">
+    <label for="descripcion">Detalle de la solicitud</label>
+    <textarea
+      id="descripcion"
+      formControlName="descripcion"
+      rows="5"
+      placeholder="Explica qué necesitas, en qué etapa está tu emprendimiento y cualquier dato útil para la revisión."
+    ></textarea>
+    <p class="pista-campo">Entre 10 y 500 caracteres.</p>
+    <p class="error" *ngIf="campoInvalido('descripcion')">
+      <span *ngIf="tieneError('descripcion', 'required')">El detalle es obligatorio.</span>
+      <span *ngIf="tieneError('descripcion', 'minlength') || tieneError('descripcion', 'maxlength')">
+        El detalle debe tener entre 10 y 500 caracteres.
+      </span>
+    </p>
+  </div>
+
+  <div class="campo campo-corto">
+    <label for="fecha">Fecha de la solicitud</label>
+    <input id="fecha" type="date" formControlName="fecha" />
+    <p class="error" *ngIf="campoInvalido('fecha')">La fecha es obligatoria.</p>
+  </div>
+
+  <button type="submit" [disabled]="enviando">
+    {{ enviando ? 'Enviando solicitud…' : 'Registrar solicitud' }}
+  </button>
+</form>
+
+<div class="toast toast-exito" *ngIf="mensajeExito && ultimoId">
+  <p class="toast-titulo">Solicitud recibida</p>
+  <p class="toast-texto">
+    Tu número de seguimiento es <strong>{{ ultimoId }}</strong>. Úsalo en la ventanilla de seguimiento.
+  </p>
+  <a class="toast-boton" [routerLink]="['/seguimiento']" [queryParams]="{ numero: ultimoId }">
+    Ir al seguimiento
+  </a>
+</div>
+
+<div class="toast toast-error" *ngIf="errorGeneral">
+  <p class="toast-texto">{{ errorGeneral }}</p>
+</div>

@@ -1,0 +1,71 @@
+<section class="hero-tramite" *ngIf="!datosCiudadano">
+  <div class="hero-interno">
+    <p class="hero-eyebrow">Trámite en línea</p>
+    <h1>Registra tu solicitud de apoyo</h1>
+    <p class="hero-texto">
+      Completa el registro y conserva el número de seguimiento. Con ese número
+      consultas el estado y te comunicas con SENPRENDE en una ventanilla aparte.
+    </p>
+    <p class="hero-atajo">
+      <a class="enlace-hero" routerLink="/seguimiento">Ya tengo un número de seguimiento</a>
+    </p>
+  </div>
+</section>
+
+<div class="lienzo">
+  <ol class="pasos" aria-label="Pasos del registro">
+    <li [class.activo]="!datosCiudadano" [class.hecho]="!!datosCiudadano">
+      <span class="paso-numero">1</span>
+      <span>Identificación</span>
+    </li>
+    <li [class.activo]="!!datosCiudadano">
+      <span class="paso-numero">2</span>
+      <span>Registro</span>
+    </li>
+    <li>
+      <a class="paso-enlace" routerLink="/seguimiento">
+        <span class="paso-numero">3</span>
+        <span>Seguimiento (otra ventanilla)</span>
+      </a>
+    </li>
+  </ol>
+
+  <div class="rejilla-tramite">
+    <main>
+      <section class="tarjeta" *ngIf="!datosCiudadano">
+        <app-datos-ciudadano (completado)="registrarDatos($event)"></app-datos-ciudadano>
+      </section>
+
+      <ng-container *ngIf="datosCiudadano">
+        <div class="saludo-ciudadano">
+          <div>
+            <p class="saludo-kicker">Sesión de trámite</p>
+            <p class="saludo-nombre">{{ datosCiudadano.nombreCompleto }}</p>
+            <p class="saludo-meta">{{ datosCiudadano.ciudad }} · Identidad {{ datosCiudadano.identidad }}</p>
+          </div>
+          <span class="sello-sesion">Identificado</span>
+        </div>
+
+        <section class="tarjeta">
+          <app-solicitud-form></app-solicitud-form>
+        </section>
+      </ng-container>
+    </main>
+
+    <aside class="panel-ayuda" aria-label="Información del trámite">
+      <h2>Antes de comenzar</h2>
+      <ul>
+        <li>Ten a la mano tu número de identidad.</li>
+        <li>Describe con claridad el apoyo o gestión que necesitas.</li>
+        <li>Guarda el número de seguimiento. El estado y el chat están en Seguimiento, no en esta pantalla.</li>
+      </ul>
+
+      <h3>¿Ya registraste?</h3>
+      <p>
+        Entra a
+        <a routerLink="/seguimiento">Seguimiento</a>
+        con tu número. No necesitas volver a identificarte.
+      </p>
+    </aside>
+  </div>
+</div>

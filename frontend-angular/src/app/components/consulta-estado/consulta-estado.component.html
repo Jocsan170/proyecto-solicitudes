@@ -1,0 +1,50 @@
+<div class="consulta-estado">
+  <p class="kicker-seccion">Consulta por número</p>
+  <h2>Estado y comunicación de tu trámite</h2>
+  <p class="texto-ayuda">
+    Ingresa el número de seguimiento que recibiste al registrar la solicitud.
+  </p>
+
+  <form class="fila-consulta" (ngSubmit)="consultar()">
+    <label class="sr-only" for="numero-seguimiento">Número de seguimiento</label>
+    <input
+      id="numero-seguimiento"
+      type="text"
+      name="numero"
+      inputmode="numeric"
+      placeholder="Ejemplo: 12"
+      [(ngModel)]="numero"
+    />
+    <button type="submit" [disabled]="buscando || !numero.trim()">
+      {{ buscando ? 'Consultando…' : 'Consultar estado' }}
+    </button>
+  </form>
+
+  <div class="resultado-consulta" *ngIf="resultado as s">
+    <p class="resultado-kicker">Expediente {{ s.id }}</p>
+    <p class="resultado-titulo">{{ s.titulo }}</p>
+    <p class="resultado-detalle">Fecha de registro: {{ s.fecha }}</p>
+    <span
+      class="estado"
+      [class.estado-pendiente]="s.estado === 'pendiente'"
+      [class.estado-atendida]="s.estado === 'atendida'"
+    >
+      {{ s.estado === 'atendida' ? 'Atendida' : 'En trámite' }}
+    </span>
+    <p class="resultado-lectura" *ngIf="s.estado === 'pendiente'">
+      Tu solicitud fue recibida y está en revisión por el equipo institucional.
+    </p>
+    <p class="resultado-lectura" *ngIf="s.estado === 'atendida'">
+      Esta solicitud ya fue atendida. Si necesitas un nuevo apoyo, registra otra solicitud.
+    </p>
+  </div>
+
+  <p class="mensaje-info" *ngIf="yaConsulto && noEncontrada">
+    No encontramos un trámite con ese número. Verifica que lo hayas escrito tal como
+    aparece en tu comprobante.
+  </p>
+
+  <p class="mensaje-error" *ngIf="errorConsulta">{{ errorConsulta }}</p>
+
+  <app-chat-tramite *ngIf="resultado" [numeroGestion]="resultado.id" rol="ciudadano"></app-chat-tramite>
+</div>

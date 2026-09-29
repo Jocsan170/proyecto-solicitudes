@@ -1,0 +1,41 @@
+<section class="chat-tramite">
+  <header class="chat-encabezado">
+    <div>
+      <p class="chat-kicker">Número de gestión {{ numeroGestion }}</p>
+      <h3>{{ tituloRol }}</h3>
+    </div>
+  </header>
+
+  <div class="chat-lista" #listaMensajes>
+    <p class="chat-vacio" *ngIf="!cargando && mensajes.length === 0">
+      Todavía no hay mensajes en este trámite. Escribe el primero para abrir la conversación.
+    </p>
+
+    <article
+      *ngFor="let m of mensajes"
+      class="burbuja"
+      [class.burbuja-propia]="m.autor === rol"
+      [class.burbuja-ajena]="m.autor !== rol"
+    >
+      <p class="burbuja-autor">{{ m.autor === 'gestor' ? 'SENPRENDE' : 'Ciudadano' }}</p>
+      <p class="burbuja-texto">{{ m.texto }}</p>
+      <time class="burbuja-fecha">{{ m.fecha | date: 'short' }}</time>
+    </article>
+  </div>
+
+  <form class="chat-formulario" (ngSubmit)="enviar()">
+    <label class="sr-only" for="mensaje-{{ numeroGestion }}">Escribe un mensaje</label>
+    <textarea
+      id="mensaje-{{ numeroGestion }}"
+      name="texto"
+      rows="2"
+      [(ngModel)]="texto"
+      [placeholder]="rol === 'gestor' ? 'Responder al ciudadano…' : 'Escribe tu consulta al personal de SENPRENDE…'"
+    ></textarea>
+    <button type="submit" [disabled]="enviando || !texto.trim()">
+      {{ enviando ? 'Enviando…' : 'Enviar' }}
+    </button>
+  </form>
+
+  <p class="error" *ngIf="errorChat">{{ errorChat }}</p>
+</section>

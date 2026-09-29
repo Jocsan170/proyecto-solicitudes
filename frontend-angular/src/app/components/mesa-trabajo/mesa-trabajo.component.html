@@ -1,0 +1,142 @@
+<div class="mesa" *ngIf="sesionActiva">
+  <header class="mesa-barra">
+    <div class="mesa-marca">
+      <img class="logo logo-compacto" src="assets/senprende.jpg" alt="" />
+      <div>
+        <p class="marca-institucion">SENPRENDE</p>
+        <p class="mesa-titulo">Mesa de trabajo</p>
+      </div>
+    </div>
+
+    <div class="mesa-acciones">
+      <button type="button" class="boton-aviso" (click)="panelAvisos = !panelAvisos" [attr.aria-expanded]="panelAvisos">
+        Notificaciones
+        <span class="badge-aviso" *ngIf="avisosNuevos > 0">{{ avisosNuevos }}</span>
+      </button>
+      <a class="enlace-silencioso" [href]="portalPublicoUrl" target="_blank" rel="noopener">Portal público</a>
+      <a class="enlace-silencioso" routerLink="/">Ventanilla ciudadana</a>
+      <button type="button" class="boton-secundario" (click)="cerrarSesion()">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <div class="bandeja-avisos" *ngIf="panelAvisos">
+    <p class="bandeja-vacia" *ngIf="notificaciones.length === 0">No hay avisos pendientes.</p>
+    <button type="button" class="aviso-item" *ngFor="let aviso of notificaciones" (click)="abrirDesdeAviso(aviso)">
+      <span class="aviso-tipo">{{ aviso.tipo === 'nueva_solicitud' ? 'Nueva solicitud' : 'Mensaje del ciudadano' }}</span>
+      <span class="aviso-texto">{{ aviso.texto }}</span>
+      <time>{{ aviso.fecha | date: 'short' }}</time>
+    </button>
+  </div>
+
+  <div class="mesa-cuerpo">
+    <aside class="mesa-cola">
+      <div class="cola-encabezado">
+        <h2>Bandeja</h2>
+        <p>{{ pendientes }} en trámite</p>
+      </div>
+
+      <div class="cola-filtros">
+        <button type="button" [class.activo]="filtro === 'pendiente'" (click)="aplicarFiltro('pendiente')">En trámite</button>
+        <button type="button" [class.activo]="filtro === 'atendida'" (click)="aplicarFiltro('atendida')">Atendidas</button>
+        <button type="button" [class.activo]="filtro === 'todas'" (click)="aplicarFiltro('todas')">Todas</button>
+      </div>
+
+      <input class="cola-buscar" type="search" [(ngModel)]="busqueda" placeholder="Buscar por asunto o N.º" />
+
+      <p *ngIf="cargando" class="mensaje-info">Cargando expedientes…</p>
+      <p *ngIf="errorCarga" class="mensaje-error">{{ errorCarga }}</p>
+      <p *ngIf="!cargando && cola.length === 0" class="mensaje-info">No hay casos en esta bandeja.</p>
+
+      <ul class="cola-lista">
+        <li *ngFor="let s of cola">
+          <button type="button" class="caso-card" [class.caso-activo]="seleccionada?.id === s.id" (click)="seleccionar(s)">
+            <div class="caso-meta">
+              <strong>N.º {{ s.id }}</strong>
+              <span class="estado" [class.estado-pendiente]="s.estado === 'pendiente'" [class.estado-atendida]="s.estado === 'atendida'">
+                {{ s.estado === 'atendida' ? 'Atendida' : 'En trámite' }}
+              </span>
+            </div>
+            <p class="caso-titulo">{{ s.titulo }}</p>
+            <p class="caso-pistas">
+              <span *ngIf="esNueva(s)" class="pista-nueva">Nueva</span>
+              <span *ngIf="mensajesPendientes(s) > 0" class="pista-chat">{{ mensajesPendientes(s) }} mensaje(s)</span>
+            </p>
+          </button>
+        </li>
+      </ul>
+    </aside>
+
+    <section class="mesa-expediente" *ngIf="seleccionada as caso">
+      <header class="expediente-cabeza">
+        <div>
+          <p class="chat-kicker">Expediente N.º {{ caso.id }}</p>
+          <h2>{{ caso.titulo }}</h2>
+        </div>
+        <div class="expediente-acciones">
+          <button
+            *ngIf="caso.estado === 'pendiente'"
+            type="button"
+            [disabled]="procesando"
+            (click)="cambiarEstado('atendida')"
+          >
+            Marcar atendida
+          </button>
+          <button
+            *ngIf="caso.estado === 'atendida'"
+            type="button"
+            class="boton-secundario"
+            [disabled]="procesando"
+            (click)="cambiarEstado('pendiente')"
+          >
+            Reabrir
+          </button>
+        </div>
+      </header>
+
+      <p class="mensaje-exito" *ngIf="mensajeConfirmacion">{{ mensajeConfirmacion }}</p>
+      <p class="mensaje-error" *ngIf="errorAccion">{{ errorAccion }}</p>
+
+      <article class="expediente-cuerpo">
+        <p class="expediente-fecha">Fecha de la solicitud: {{ caso.fecha }}</p>
+        <p class="expediente-detalle">{{ caso.descripcion }}</p>
+      </article>
+
+      <app-chat-tramite [numeroGestion]="caso.id" rol="gestor"></app-chat-tramite>
+    </section>
+
+    <section class="mesa-vacio" *ngIf="!seleccionada">
+      <p>Selecciona un expediente de la bandeja para trabajarlo.</p>
+      <p>Las solicitudes nuevas y los mensajes del ciudadano aparecen en notificaciones.</p>
+    </section>
+  </div>
+</div>
+
+<section class="acceso-mesa" *ngIf="!sesionActiva">
+  <div class="tarjeta tarjeta-acceso">
+    <p class="kicker-seccion">Personal institucional</p>
+    <h1>Mesa de trabajo SENPRENDE</h1>
+    <p class="texto-ayuda">
+      Ingreso exclusivo para gestionar solicitudes, ver avisos de nuevos trámites y
+      responder al ciudadano por el número de gestión.
+    </p>
+    <form (ngSubmit)="iniciarSesion()">
+      <div class="campo">
+        <label for="usuario">Usuario</label>
+        <input id="usuario" type="text" name="usuario" [(ngModel)]="usuario" autocomplete="username" />
+      </div>
+      <div class="campo">
+        <label for="contrasena">Contraseña</label>
+        <input
+          id="contrasena"
+          type="password"
+          name="contrasena"
+          [(ngModel)]="contrasena"
+          autocomplete="current-password"
+        />
+      </div>
+      <p class="error" *ngIf="errorLogin">{{ errorLogin }}</p>
+      <button type="submit">Entrar a la mesa</button>
+    </form>
+    <p><a routerLink="/">Volver a la ventanilla ciudadana</a></p>
+  </div>
+</section>

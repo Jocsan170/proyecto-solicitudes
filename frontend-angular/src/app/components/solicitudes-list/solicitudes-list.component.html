@@ -1,0 +1,167 @@
+<section class="listado-solicitudes">
+  <!-- Sesión no iniciada: solo el formulario de acceso -->
+  <div class="login-gestor" *ngIf="!sesionActiva">
+    <h2>Acceso institucional</h2>
+    <p class="texto-ayuda">Ingreso exclusivo para personal autorizado de gestión.</p>
+
+    <form (ngSubmit)="iniciarSesion()">
+      <div class="campo">
+        <label for="usuario">Usuario</label>
+        <input id="usuario" type="text" name="usuario" [(ngModel)]="usuario" autocomplete="username" />
+      </div>
+      <div class="campo">
+        <label for="contrasena">Contraseña</label>
+        <input
+          id="contrasena"
+          type="password"
+          name="contrasena"
+          [(ngModel)]="contrasena"
+          autocomplete="current-password"
+        />
+      </div>
+      <p class="error" *ngIf="errorLogin">{{ errorLogin }}</p>
+      <button type="submit">Iniciar sesión</button>
+    </form>
+  </div>
+
+  <!-- Sesión activa: panel completo -->
+  <ng-container *ngIf="sesionActiva">
+    <div class="panel-encabezado">
+      <h2>Panel de gestión</h2>
+      <button type="button" class="boton-secundario" (click)="cerrarSesion()">Cerrar sesión</button>
+    </div>
+
+    <a class="boton-secundario enlace-portal" [href]="portalPublicoUrl" target="_blank" rel="noopener">
+      Ver portal público de trámites (pestaña nueva)
+    </a>
+
+    <div class="controles-panel">
+      <div class="campo-control">
+        <label>Buscar por título</label>
+        <div class="fila-busqueda">
+          <input type="text" [(ngModel)]="busqueda" (keyup.enter)="buscar()" placeholder="Ej. alumbrado" />
+          <button type="button" (click)="buscar()">Buscar</button>
+        </div>
+      </div>
+
+      <div class="campo-control">
+        <label>Estado</label>
+        <select [ngModel]="filtro" (ngModelChange)="aplicarFiltro($event)">
+          <option value="todas">Todas</option>
+          <option value="pendiente">Pendiente</option>
+          <option value="atendida">Atendida</option>
+        </select>
+      </div>
+
+      <div class="campo-control">
+        <label>Orden</label>
+        <select [ngModel]="orden" (ngModelChange)="aplicarOrden($event)">
+          <option value="recientes">Más recientes primero</option>
+          <option value="antiguas">Más antiguas primero</option>
+        </select>
+      </div>
+    </div>
+
+    <p *ngIf="cargando">Cargando…</p>
+
+    <p class="mensaje-error" *ngIf="!cargando && errorCarga">{{ errorCarga }}</p>
+
+    <p class="mensaje-info" *ngIf="!cargando && !errorCarga && listaVacia">
+      No hay solicitudes para los filtros seleccionados.
+    </p>
+
+    <p class="contador-resultados" *ngIf="!cargando && !errorCarga && !listaVacia">
+      Mostrando {{ solicitudes.length }} solicitud{{ solicitudes.length === 1 ? '' : 'es' }}.
+    </p>
+
+    <table *ngIf="!cargando && !errorCarga && !listaVacia">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Título</th>
+          <th>Fecha</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <ng-container *ngFor="let s of solicitudes">
+          <tr>
+            <td>{{ s.id }}</td>
+            <td>{{ s.titulo }}</td>
+            <td>{{ s.fecha }}</td>
+            <td>
+              <span
+                class="estado"
+                [class.estado-pendiente]="s.estado === 'pendiente'"
+                [class.estado-atendida]="s.estado === 'atendida'"
+              >
+                {{ s.estado === 'atendida' ? 'Atendida' : 'En trámite' }}
+              </span>
+            </td>
+            <td class="celda-acciones">
+              <button
+                *ngIf="s.estado === 'pendiente'"
+                type="button"
+                [disabled]="procesandoId === s.id"
+                (click)="cambiarEstado(s, 'atendida')"
+              >
+                Marcar atendida
+              </button>
+              <button
+                *ngIf="s.estado === 'atendida'"
+                type="button"
+                class="boton-secundario"
+                [disabled]="procesandoId === s.id"
+                (click)="cambiarEstado(s, 'pendiente')"
+              >
+                Reabrir
+              </button>
+              <button type="button" class="boton-secundario" (click)="iniciarEdicion(s)">Editar</button>
+              <button
+                type="button"
+                class="boton-peligro"
+                [disabled]="procesandoId === s.id"
+                (click)="eliminar(s)"
+              >
+                Eliminar
+              </button>
+            </td>
+          </tr>
+
+          <!-- Formulario de edición, justo debajo de la fila correspondiente -->
+          <tr *ngIf="idEnEdicion === s.id">
+            <td colspan="5">
+              <div class="tarjeta-edicion">
+                <div class="campo">
+                  <label>Título</label>
+                  <input type="text" [(ngModel)]="edicionTitulo" [ngModelOptions]="{ standalone: true }" />
+                </div>
+                <div class="campo">
+                  <label>Descripción</label>
+                  <textarea rows="3" [(ngModel)]="edicionDescripcion" [ngModelOptions]="{ standalone: true }"></textarea>
+                </div>
+                <div class="campo">
+                  <label>Fecha</label>
+                  <input type="date" [(ngModel)]="edicionFecha" [ngModelOptions]="{ standalone: true }" />
+                </div>
+
+                <p class="error" *ngIf="errorEdicion">{{ errorEdicion }}</p>
+
+                <div class="acciones-edicion">
+                  <button type="button" [disabled]="guardandoEdicion" (click)="guardarEdicion()">
+                    {{ guardandoEdicion ? 'Guardando…' : 'Guardar cambios' }}
+                  </button>
+                  <button type="button" class="boton-secundario" (click)="cancelarEdicion()">Cancelar</button>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+
+    <p class="mensaje-exito" *ngIf="mensajeConfirmacion">{{ mensajeConfirmacion }}</p>
+    <p class="mensaje-error" *ngIf="errorAccion">{{ errorAccion }}</p>
+  </ng-container>
+</section>

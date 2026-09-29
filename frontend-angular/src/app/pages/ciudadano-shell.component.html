@@ -1,0 +1,55 @@
+<div class="sitio-ciudadano">
+  <a class="saltar-contenido" href="#contenido-principal">Ir al contenido</a>
+
+  <div class="cinta-oficial">
+    <div class="cinta-interna">
+      <span>Gobierno de Honduras</span>
+      <span class="cinta-separador" aria-hidden="true">·</span>
+      <span>Servicio digital de atención a MIPYME</span>
+    </div>
+  </div>
+
+  <header class="barra-servicio">
+    <div class="barra-interna">
+      <a class="marca-servicio" routerLink="/">
+        <img class="logo" src="assets/senprende.jpg" alt="Escudo institucional de SENPRENDE" />
+        <div>
+          <p class="marca-institucion">SENPRENDE</p>
+          <p class="marca-nombre">Ventanilla de solicitudes</p>
+        </div>
+      </a>
+
+      <nav class="nav-servicio" aria-label="Secciones del trámite">
+        <a routerLink="/" routerLinkActive="nav-activo" [routerLinkActiveOptions]="{ exact: true }">Registrar solicitud</a>
+        <a routerLink="/seguimiento" routerLinkActive="nav-activo">Seguimiento</a>
+        <a href="http://localhost:3001/solicitudes" target="_blank" rel="noopener">Portal público</a>
+      </nav>
+
+      <a class="enlace-institucional" routerLink="/gestion">Acceso institucional</a>
+    </div>
+  </header>
+
+  <div id="contenido-principal" class="sitio-cuerpo">
+    <router-outlet></router-outlet>
+  </div>
+
+  <footer class="pie-ciudadano">
+    <div class="pie-interno">
+      <div>
+        <p class="pie-marca">SENPRENDE</p>
+        <p>Servicio nacional de emprendimiento y de pequeñas y medianas empresas.</p>
+      </div>
+      <div>
+        <p class="pie-marca">Contacto</p>
+        <p>Centro Cívico Gubernamental, Torre 2</p>
+        <p>info&#64;senprende.hn</p>
+        <p>2242-8101</p>
+      </div>
+      <div>
+        <p class="pie-marca">Horario de referencia</p>
+        <p>Lunes a viernes, 8:00 a. m. a 4:00 p. m.</p>
+        <p>Este canal digital permanece disponible las 24 horas.</p>
+      </div>
+    </div>
+  </footer>
+</div>

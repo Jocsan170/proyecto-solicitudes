@@ -33,6 +33,8 @@ async function main() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      nombreSolicitante: 'Persona de prueba',
+      identidad: '0801-2000-12345',
       titulo: 'Solicitud de prueba',
       descripcion: 'Descripción suficientemente larga para pasar la validación.',
       fecha: '2026-09-20',
@@ -41,6 +43,14 @@ async function main() {
   let cuerpo = await resp.json();
   verificar('Crear solicitud válida -> 201', resp.status === 201 && cuerpo.success === true, cuerpo);
   const idCreado = cuerpo?.data?.id;
+
+  resp = await fetch(`${BASE_URL}/${idCreado}`);
+  cuerpo = await resp.json();
+  verificar('Detalle privado sin permisos -> 403', resp.status === 403 && cuerpo.success === false, cuerpo);
+
+  resp = await fetch(BASE_URL);
+  cuerpo = await resp.json();
+  verificar('Listado completo sin permisos -> 403', resp.status === 403 && cuerpo.success === false, cuerpo);
 
   // 2. Crear con campos incompletos
   resp = await fetch(BASE_URL, {
@@ -52,12 +62,16 @@ async function main() {
   verificar('Crear con campos incompletos -> 400', resp.status === 400 && cuerpo.success === false, cuerpo);
 
   // 3. Listar todas
-  resp = await fetch(BASE_URL);
+  resp = await fetch(BASE_URL, {
+    headers: { Authorization: 'Bearer TOKEN_GESTOR_DEMO' },
+  });
   cuerpo = await resp.json();
   verificar('Listar todas -> 200 con arreglo', resp.status === 200 && Array.isArray(cuerpo.data), cuerpo);
 
   // 4. Listar con filtro que da lista vacía (éxito, no error)
-  resp = await fetch(`${BASE_URL}?estado=atendida`);
+  resp = await fetch(`${BASE_URL}?estado=atendida`, {
+    headers: { Authorization: 'Bearer TOKEN_GESTOR_DEMO' },
+  });
   cuerpo = await resp.json();
   verificar(
     'Filtrar por "atendida" sin resultados -> 200, success:true, data:[]',
@@ -66,12 +80,16 @@ async function main() {
   );
 
   // 5. Filtro de estado inválido
-  resp = await fetch(`${BASE_URL}?estado=inexistente`);
+  resp = await fetch(`${BASE_URL}?estado=inexistente`, {
+    headers: { Authorization: 'Bearer TOKEN_GESTOR_DEMO' },
+  });
   cuerpo = await resp.json();
   verificar('Filtrar con estado inválido -> 400', resp.status === 400 && cuerpo.success === false, cuerpo);
 
   // 6. Consultar detalle inexistente
-  resp = await fetch(`${BASE_URL}/id-que-no-existe`);
+  resp = await fetch(`${BASE_URL}/id-que-no-existe`, {
+    headers: { Authorization: 'Bearer TOKEN_GESTOR_DEMO' },
+  });
   cuerpo = await resp.json();
   verificar('Consultar id inexistente -> 404', resp.status === 404 && cuerpo.success === false, cuerpo);
 
@@ -102,12 +120,33 @@ async function main() {
   cuerpo = await resp.json();
   verificar(
     'Cambiar estado con rol "gestor" -> 200 con confirmación',
-    resp.status === 200 && cuerpo.success === true && cuerpo.data.estado === 'atendida' && typeof cuerpo.mensaje === 'string',
+    resp.status === 200 && cuerpo.success === true && cuerpo.data.estado === 'atendida' &&
+      Array.isArray(cuerpo.data.historialEstados) && cuerpo.data.historialEstados.at(-1)?.estado === 'atendida' &&
+      typeof cuerpo.mensaje === 'string',
+    cuerpo
+  );
+
+  // 9a. El seguimiento verifica el código privado y responde con un token temporal.
+  const numeroGestion = cuerpo?.data?.numeroGestion;
+  resp = await fetch(`${BASE_URL}/publicas/consulta`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ numeroGestion }),
+  });
+  cuerpo = await resp.json();
+  const tokenSeguimiento = cuerpo?.data?.token;
+  verificar(
+    'Consulta privada -> valida código, incluye historial y omite datos personales',
+    resp.status === 200 && cuerpo.data.solicitud.historialEstados.length === 2 &&
+      !('identidad' in cuerpo.data.solicitud) && !('nombreSolicitante' in cuerpo.data.solicitud) &&
+      !('descripcion' in cuerpo.data.solicitud) && !('titulo' in cuerpo.data.solicitud) && !!tokenSeguimiento,
     cuerpo
   );
 
   // 10. Ahora sí debe aparecer al filtrar por "atendida"
-  resp = await fetch(`${BASE_URL}?estado=atendida`);
+  resp = await fetch(`${BASE_URL}?estado=atendida`, {
+    headers: { Authorization: 'Bearer TOKEN_GESTOR_DEMO' },
+  });
   cuerpo = await resp.json();
   verificar(
     'Filtrar por "atendida" tras el cambio -> incluye la solicitud',
@@ -146,7 +185,9 @@ async function main() {
   );
 
   // 13. Buscar por título
-  resp = await fetch(`${BASE_URL}?buscar=editado`);
+  resp = await fetch(`${BASE_URL}?buscar=editado`, {
+    headers: { Authorization: 'Bearer TOKEN_GESTOR_DEMO' },
+  });
   cuerpo = await resp.json();
   verificar(
     'Buscar por título -> encuentra la solicitud editada',
@@ -155,7 +196,9 @@ async function main() {
   );
 
   // 14. Orden por más antiguas primero
-  resp = await fetch(`${BASE_URL}?orden=antiguas`);
+  resp = await fetch(`${BASE_URL}?orden=antiguas`, {
+    headers: { Authorization: 'Bearer TOKEN_GESTOR_DEMO' },
+  });
   cuerpo = await resp.json();
   verificar(
     'Orden "antiguas" -> primer resultado tiene el id más chico',
@@ -164,15 +207,17 @@ async function main() {
   );
 
   // 15. Chat ciudadano sobre el número de gestión
-  resp = await fetch(`${BASE_URL}/${idCreado}/mensajes`, {
+  resp = await fetch(`${BASE_URL}/seguimiento/mensajes`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Seguimiento-Token': tokenSeguimiento },
     body: JSON.stringify({ texto: '¿Cuál es el avance de mi trámite?' }),
   });
   cuerpo = await resp.json();
   verificar('Ciudadano envía mensaje -> 201', resp.status === 201 && cuerpo.success === true, cuerpo);
 
-  resp = await fetch(`${BASE_URL}/${idCreado}/mensajes`);
+  resp = await fetch(`${BASE_URL}/seguimiento/mensajes`, {
+    headers: { 'X-Seguimiento-Token': tokenSeguimiento },
+  });
   cuerpo = await resp.json();
   verificar(
     'Listar mensajes del trámite -> incluye el del ciudadano',
@@ -204,7 +249,9 @@ async function main() {
   verificar('Eliminar con permisos de gestor -> 200', resp.status === 200 && cuerpo.success === true, cuerpo);
 
   // 17. Ya no debe existir
-  resp = await fetch(`${BASE_URL}/${idCreado}`);
+  resp = await fetch(`${BASE_URL}/${idCreado}`, {
+    headers: { Authorization: 'Bearer TOKEN_GESTOR_DEMO' },
+  });
   cuerpo = await resp.json();
   verificar('Consultar la solicitud eliminada -> 404', resp.status === 404 && cuerpo.success === false, cuerpo);
 

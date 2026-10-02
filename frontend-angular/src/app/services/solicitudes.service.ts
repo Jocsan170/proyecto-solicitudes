@@ -1,7 +1,7 @@
-import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, catchError, throwError } from 'rxjs';
-import { EstadoSolicitud, MensajeTramite, NotificacionBandeja, RespuestaApi, Solicitud } from '../models/solicitud.model';
+import { AccesoSeguimiento, EstadoSolicitud, MensajeTramite, NotificacionBandeja, RespuestaApi, Solicitud, SolicitudPublica } from '../models/solicitud.model';
 import { AuthService } from './auth.service';
 
 /**
@@ -10,11 +10,23 @@ import { AuthService } from './auth.service';
  */
 const BASE_URL = '/api/solicitudes';
 
+export interface RespuestaWilliams {
+  answer: string;
+  sources: { title: string; url: string }[];
+  needsAdvisor: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class SolicitudesService {
   constructor(private http: HttpClient, private auth: AuthService) {}
 
-  crear(datos: { titulo: string; descripcion: string; fecha: string }): Observable<RespuestaApi<Solicitud>> {
+  consultarWilliams(pregunta: string, historial: { role: 'user' | 'assistant'; content: string }[]): Observable<RespuestaApi<RespuestaWilliams>> {
+    return this.http
+      .post<RespuestaApi<RespuestaWilliams>>('/api/williams', { pregunta, historial })
+      .pipe(catchError((err) => this.normalizarError(err)));
+  }
+
+  crear(datos: { nombreSolicitante: string; identidad: string; titulo: string; descripcion: string }): Observable<RespuestaApi<Solicitud>> {
     return this.http
       .post<RespuestaApi<Solicitud>>(BASE_URL, datos, { headers: this.auth.obtenerEncabezadoAutorizacion() })
       .pipe(catchError((err) => this.normalizarError(err)));
@@ -50,6 +62,12 @@ export class SolicitudesService {
       .pipe(catchError((err) => this.normalizarError(err)));
   }
 
+  verificarSeguimiento(numeroGestion: string): Observable<RespuestaApi<AccesoSeguimiento>> {
+    return this.http
+      .post<RespuestaApi<AccesoSeguimiento>>(`${BASE_URL}/publicas/consulta`, { numeroGestion })
+      .pipe(catchError((err) => this.normalizarError(err)));
+  }
+
   cambiarEstado(id: string, estado: EstadoSolicitud): Observable<RespuestaApi<Solicitud>> {
     return this.http
       .patch<RespuestaApi<Solicitud>>(
@@ -60,20 +78,26 @@ export class SolicitudesService {
       .pipe(catchError((err) => this.normalizarError(err)));
   }
 
-  listarMensajes(id: string): Observable<RespuestaApi<MensajeTramite[]>> {
+  listarMensajes(id: string, tokenSeguimiento?: string): Observable<RespuestaApi<MensajeTramite[]>> {
+    let headers = new HttpHeaders(this.auth.obtenerEncabezadoAutorizacion());
+    if (tokenSeguimiento) headers = headers.set('X-Seguimiento-Token', tokenSeguimiento);
+    const url = tokenSeguimiento ? `${BASE_URL}/seguimiento/mensajes` : `${BASE_URL}/${id}/mensajes`;
     return this.http
-      .get<RespuestaApi<MensajeTramite[]>>(`${BASE_URL}/${id}/mensajes`, {
-        headers: this.auth.obtenerEncabezadoAutorizacion(),
+      .get<RespuestaApi<MensajeTramite[]>>(url, {
+        headers,
       })
       .pipe(catchError((err) => this.normalizarError(err)));
   }
 
-  enviarMensaje(id: string, texto: string): Observable<RespuestaApi<MensajeTramite>> {
+  enviarMensaje(id: string, texto: string, tokenSeguimiento?: string): Observable<RespuestaApi<MensajeTramite>> {
+    let headers = new HttpHeaders(this.auth.obtenerEncabezadoAutorizacion());
+    if (tokenSeguimiento) headers = headers.set('X-Seguimiento-Token', tokenSeguimiento);
+    const url = tokenSeguimiento ? `${BASE_URL}/seguimiento/mensajes` : `${BASE_URL}/${id}/mensajes`;
     return this.http
       .post<RespuestaApi<MensajeTramite>>(
-        `${BASE_URL}/${id}/mensajes`,
+        url,
         { texto },
-        { headers: this.auth.obtenerEncabezadoAutorizacion() }
+        { headers }
       )
       .pipe(catchError((err) => this.normalizarError(err)));
   }

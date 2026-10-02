@@ -1,0 +1,13 @@
+{
+  "name": "registro-solicitudes",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Arranque conjunto de los proyectos de registro de solicitudes",
+  "scripts": {
+    "postinstall": "node install-all.js",
+    "start": "node start-all.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

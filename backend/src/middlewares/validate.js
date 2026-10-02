@@ -8,13 +8,23 @@ const ESTADOS_VALIDOS = ['pendiente', 'atendida'];
 
 function esFechaValida(valor) {
   if (typeof valor !== 'string') return false;
-  const fecha = new Date(valor);
-  return !Number.isNaN(fecha.getTime());
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false;
+  const fecha = new Date(`${valor}T00:00:00.000Z`);
+  return !Number.isNaN(fecha.getTime()) && fecha.toISOString().slice(0, 10) === valor;
 }
 
-function validarCreacion(body) {
+function validarCreacion(body, opciones = {}) {
   const errores = [];
-  const { titulo, descripcion, fecha } = body || {};
+  const requerirFecha = opciones.requerirFecha !== false;
+  const { nombreSolicitante, identidad, titulo, descripcion, fecha } = body || {};
+
+  if (typeof nombreSolicitante !== 'string' || nombreSolicitante.trim().length < 3 || nombreSolicitante.trim().length > 100) {
+    errores.push({ campo: 'nombreSolicitante', mensaje: 'El nombre completo es obligatorio y debe tener entre 3 y 100 caracteres.' });
+  }
+
+  if (typeof identidad !== 'string' || !/^[0-9-]{8,20}$/.test(identidad.trim()) || identidad.trim().replace(/-/g, '').length < 8) {
+    errores.push({ campo: 'identidad', mensaje: 'La identidad es obligatoria; escribe entre 8 y 20 números o guiones.' });
+  }
 
   if (typeof titulo !== 'string' || titulo.trim().length === 0) {
     errores.push({ campo: 'titulo', mensaje: 'El título es obligatorio.' });
@@ -28,9 +38,9 @@ function validarCreacion(body) {
     errores.push({ campo: 'descripcion', mensaje: 'La descripción debe tener entre 10 y 500 caracteres.' });
   }
 
-  if (fecha === undefined || fecha === null || fecha === '') {
+  if (requerirFecha && (fecha === undefined || fecha === null || fecha === '')) {
     errores.push({ campo: 'fecha', mensaje: 'La fecha es obligatoria.' });
-  } else if (!esFechaValida(fecha)) {
+  } else if (fecha !== undefined && fecha !== null && fecha !== '' && !esFechaValida(fecha)) {
     errores.push({ campo: 'fecha', mensaje: 'La fecha debe tener un formato válido (ISO 8601).' });
   }
 
@@ -61,8 +71,8 @@ function validarMensaje(body) {
   const { texto } = body || {};
   if (typeof texto !== 'string' || texto.trim().length === 0) {
     errores.push({ campo: 'texto', mensaje: 'El mensaje no puede ir vacío.' });
-  } else if (texto.trim().length > 500) {
-    errores.push({ campo: 'texto', mensaje: 'El mensaje no puede superar 500 caracteres.' });
+  } else if (texto.trim().length > 5000) {
+    errores.push({ campo: 'texto', mensaje: 'El mensaje no puede superar 5,000 caracteres.' });
   }
   return errores;
 }

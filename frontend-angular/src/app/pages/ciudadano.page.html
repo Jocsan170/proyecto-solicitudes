@@ -1,71 +1,38 @@
-<section class="hero-tramite" *ngIf="!datosCiudadano">
-  <div class="hero-interno">
-    <p class="hero-eyebrow">Trámite en línea</p>
-    <h1>Registra tu solicitud de apoyo</h1>
-    <p class="hero-texto">
-      Completa el registro y conserva el número de seguimiento. Con ese número
-      consultas el estado y te comunicas con SENPRENDE en una ventanilla aparte.
-    </p>
-    <p class="hero-atajo">
-      <a class="enlace-hero" routerLink="/seguimiento">Ya tengo un número de seguimiento</a>
-    </p>
+<section class="hero-tramite hero-registro">
+  <div class="hero-interno hero-registro-interno">
+    <div>
+      <p class="hero-eyebrow">Ventanilla digital</p>
+      <h1>Cuéntanos qué apoyo necesita tu negocio.</h1>
+      <p class="hero-texto">
+        Registra tu consulta en unos minutos. Recibirás un número de gestión para consultar el avance y continuar la comunicación.
+      </p>
+    </div>
+    <a class="hero-atajo" routerLink="/seguimiento">¿Ya tienes un número? <strong>Ir a seguimiento <span aria-hidden="true">→</span></strong></a>
   </div>
 </section>
 
 <div class="lienzo">
-  <ol class="pasos" aria-label="Pasos del registro">
-    <li [class.activo]="!datosCiudadano" [class.hecho]="!!datosCiudadano">
-      <span class="paso-numero">1</span>
-      <span>Identificación</span>
-    </li>
-    <li [class.activo]="!!datosCiudadano">
-      <span class="paso-numero">2</span>
-      <span>Registro</span>
-    </li>
-    <li>
-      <a class="paso-enlace" routerLink="/seguimiento">
-        <span class="paso-numero">3</span>
-        <span>Seguimiento (otra ventanilla)</span>
-      </a>
-    </li>
-  </ol>
-
-  <div class="rejilla-tramite">
+  <div class="rejilla-tramite rejilla-registro">
     <main>
-      <section class="tarjeta" *ngIf="!datosCiudadano">
-        <app-datos-ciudadano (completado)="registrarDatos($event)"></app-datos-ciudadano>
+      <section class="tarjeta tarjeta-registro">
+        <app-solicitud-form></app-solicitud-form>
       </section>
-
-      <ng-container *ngIf="datosCiudadano">
-        <div class="saludo-ciudadano">
-          <div>
-            <p class="saludo-kicker">Sesión de trámite</p>
-            <p class="saludo-nombre">{{ datosCiudadano.nombreCompleto }}</p>
-            <p class="saludo-meta">{{ datosCiudadano.ciudad }} · Identidad {{ datosCiudadano.identidad }}</p>
-          </div>
-          <span class="sello-sesion">Identificado</span>
-        </div>
-
-        <section class="tarjeta">
-          <app-solicitud-form></app-solicitud-form>
-        </section>
-      </ng-container>
     </main>
 
-    <aside class="panel-ayuda" aria-label="Información del trámite">
-      <h2>Antes de comenzar</h2>
+    <aside class="panel-ayuda panel-ayuda-registro" aria-label="Información antes de registrar">
+      <p class="panel-ayuda-etiqueta">Antes de enviar</p>
+      <h2>Una buena descripción ayuda a orientar tu solicitud.</h2>
       <ul>
-        <li>Ten a la mano tu número de identidad.</li>
-        <li>Describe con claridad el apoyo o gestión que necesitas.</li>
-        <li>Guarda el número de seguimiento. El estado y el chat están en Seguimiento, no en esta pantalla.</li>
+        <li>Identifícate con tu nombre y número de identidad.</li>
+        <li>Explica qué necesitas y en qué etapa está tu negocio.</li>
+        <li>No incluyas contraseñas ni datos bancarios en la descripción.</li>
+        <li>Guarda el número de gestión que aparecerá al finalizar.</li>
       </ul>
-
-      <h3>¿Ya registraste?</h3>
-      <p>
-        Entra a
-        <a routerLink="/seguimiento">Seguimiento</a>
-        con tu número. No necesitas volver a identificarte.
-      </p>
+      <div class="panel-ayuda-nota">
+        <span aria-hidden="true">i</span>
+        <p>El registro no confirma aprobación de apoyo. El equipo revisará la consulta y actualizará su estado.</p>
+      </div>
+      <p class="panel-ayuda-enlace">¿Ya registraste? <a routerLink="/seguimiento">Consulta tu trámite</a></p>
     </aside>
   </div>
 </div>

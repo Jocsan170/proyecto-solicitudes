@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { EstadoSolicitud, Solicitud } from '../../models/solicitud.model';
 import { SolicitudesService } from '../../services/solicitudes.service';
 import { AuthService } from '../../services/auth.service';
+import { obtenerUrlPortalPublico } from '../../services/portal-publico-url';
+import { formatearNumeroGestion } from '../../utils/numero-gestion';
 
 type FiltroEstado = EstadoSolicitud | 'todas';
 type Orden = 'recientes' | 'antiguas';
@@ -16,7 +18,7 @@ type Orden = 'recientes' | 'antiguas';
 })
 export class SolicitudesListComponent implements OnInit {
   /** Portal público (Nuxt) — ajusta el puerto si lo corres distinto. */
-  readonly portalPublicoUrl = 'http://localhost:3001/solicitudes';
+  readonly portalPublicoUrl = obtenerUrlPortalPublico();
 
   // --- Sesión de gestor ---
   usuario = '';
@@ -47,6 +49,10 @@ export class SolicitudesListComponent implements OnInit {
   procesandoId: string | null = null;
 
   constructor(private solicitudesService: SolicitudesService, private auth: AuthService) {}
+
+  formatearCodigo(numero: string): string {
+    return formatearNumeroGestion(numero);
+  }
 
   ngOnInit(): void {
     if (this.auth.estaAutenticado()) {

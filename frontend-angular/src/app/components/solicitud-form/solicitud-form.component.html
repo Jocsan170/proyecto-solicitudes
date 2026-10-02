@@ -1,77 +1,90 @@
-<form [formGroup]="formulario" (ngSubmit)="enviar()" class="formulario-solicitud">
-  <p class="kicker-seccion">Paso 2 de 2</p>
-  <h2>Nueva solicitud de apoyo</h2>
+<form [formGroup]="formulario" (ngSubmit)="enviar()" class="formulario-solicitud" novalidate>
+  <div class="formulario-encabezado">
+    <div>
+      <p class="kicker-seccion">Nueva consulta</p>
+      <h2>Identifícate y describe tu solicitud</h2>
+    </div>
+    <span class="formulario-tiempo">Fecha registrada automáticamente</span>
+  </div>
   <p class="texto-ayuda">
-    Describe el trámite. Al enviarla recibirás un número de seguimiento. El estado
-    y el chat se consultan en la ventanilla de seguimiento, no en esta pantalla.
+    Indica quién realiza la solicitud y comparte la información necesaria para entender qué orientación buscas. La fecha se registrará automáticamente.
   </p>
 
-  <div class="comprobante" *ngIf="ultimoId">
-    <p class="comprobante-kicker">Solicitud registrada</p>
-    <p class="comprobante-numero">N.º de seguimiento {{ ultimoId }}</p>
-    <p class="comprobante-texto">
-      Guárdalo. Con este número consultas el estado y escribes a SENPRENDE.
-    </p>
-    <div class="acciones-comprobante">
-      <button type="button" class="boton-secundario" (click)="copiarNumero()">
-        {{ copiado ? 'Número copiado' : 'Copiar número' }}
-      </button>
-      <a class="boton-secundario" [routerLink]="['/seguimiento']" [queryParams]="{ numero: ultimoId }">
-        Ir al seguimiento
-      </a>
+  <div id="comprobante-solicitud" class="comprobante" *ngIf="ultimoId" role="status" aria-live="polite" tabindex="-1">
+    <div class="comprobante-icono" aria-hidden="true">✓</div>
+    <div class="comprobante-contenido">
+      <p class="comprobante-kicker">Solicitud recibida</p>
+      <p class="comprobante-numero">Tu número de gestión es <strong>{{ formatearNumeroGestion(ultimoId) }}</strong> <span>(12 dígitos)</span></p>
+      <p class="comprobante-texto">Guarda este código privado. Lo necesitarás para consultar el avance de tu solicitud.</p>
+      <div class="acciones-comprobante">
+        <button type="button" class="boton-secundario" (click)="copiarNumero()">
+          {{ copiado ? '✓ Número copiado' : 'Copiar número de gestión' }}
+        </button>
+        <a class="boton-secundario" routerLink="/seguimiento">
+          Consultar seguimiento <span aria-hidden="true">→</span>
+        </a>
+      </div>
+      <p class="pista-campo" *ngIf="errorCopiado" role="status">No se pudo copiar automáticamente. Selecciona y copia el código mostrado arriba.</p>
     </div>
   </div>
 
   <div class="campo">
-    <label for="titulo">Asunto</label>
-    <input id="titulo" type="text" formControlName="titulo" placeholder="Ej. Apoyo para formalizar mi negocio" />
-    <p class="pista-campo">Entre 3 y 100 caracteres. Sé concreto.</p>
-    <p class="error" *ngIf="campoInvalido('titulo')">
-      <span *ngIf="tieneError('titulo', 'required')">El asunto es obligatorio.</span>
-      <span *ngIf="tieneError('titulo', 'minlength') || tieneError('titulo', 'maxlength')">
-        El asunto debe tener entre 3 y 100 caracteres.
-      </span>
+    <label for="nombreSolicitante">Nombre completo</label>
+    <input id="nombreSolicitante" type="text" formControlName="nombreSolicitante" required maxlength="100" autocomplete="name" aria-describedby="error-nombre" [attr.aria-invalid]="campoInvalido('nombreSolicitante')" />
+    <p id="error-nombre" class="error" *ngIf="campoInvalido('nombreSolicitante')" role="alert">Escribe tu nombre completo (3–100 caracteres).</p>
+  </div>
+
+  <div class="campo">
+    <label for="identidad">Número de identidad</label>
+    <input id="identidad" type="text" formControlName="identidad" required maxlength="20" inputmode="numeric" autocomplete="off" placeholder="Escribe tu número de identidad" aria-describedby="ayuda-identidad error-identidad" [attr.aria-invalid]="campoInvalido('identidad')" />
+    <p id="ayuda-identidad" class="pista-campo">Se usará para identificar la solicitud. No lo compartiremos en la consulta pública.</p>
+    <p id="error-identidad" class="error" *ngIf="campoInvalido('identidad')" role="alert">Ingresa tu identidad usando números y, si corresponde, guiones (8–20 caracteres).</p>
+  </div>
+
+  <div class="campo">
+    <label for="titulo">Asunto <span class="campo-rango">(3–100 caracteres)</span></label>
+    <input id="titulo" type="text" formControlName="titulo" required maxlength="100" autocomplete="off" placeholder="Ej. Orientación para formalizar mi negocio" aria-describedby="ayuda-titulo error-titulo" [attr.aria-invalid]="campoInvalido('titulo')" />
+    <p id="ayuda-titulo" class="pista-campo">Resume en una frase el tema de tu consulta.</p>
+    <p id="error-titulo" class="error" *ngIf="campoInvalido('titulo')" role="alert">
+      <span *ngIf="tieneError('titulo', 'required')">Escribe un asunto para continuar.</span>
+      <span *ngIf="tieneError('titulo', 'longitudRecortada')">El asunto debe tener entre 3 y 100 caracteres, sin contar espacios al inicio o al final.</span>
     </p>
   </div>
 
   <div class="campo">
-    <label for="descripcion">Detalle de la solicitud</label>
+    <label for="descripcion">¿En qué podemos orientarte? <span class="campo-rango">(10–500 caracteres)</span></label>
     <textarea
       id="descripcion"
       formControlName="descripcion"
-      rows="5"
-      placeholder="Explica qué necesitas, en qué etapa está tu emprendimiento y cualquier dato útil para la revisión."
+      rows="6"
+      required
+      maxlength="500"
+      placeholder="Cuéntanos qué necesitas y en qué etapa se encuentra tu emprendimiento."
+      aria-describedby="ayuda-descripcion error-descripcion privacidad-descripcion"
+      [attr.aria-invalid]="campoInvalido('descripcion')"
     ></textarea>
-    <p class="pista-campo">Entre 10 y 500 caracteres.</p>
-    <p class="error" *ngIf="campoInvalido('descripcion')">
-      <span *ngIf="tieneError('descripcion', 'required')">El detalle es obligatorio.</span>
-      <span *ngIf="tieneError('descripcion', 'minlength') || tieneError('descripcion', 'maxlength')">
-        El detalle debe tener entre 10 y 500 caracteres.
-      </span>
+    <div class="campo-pie">
+      <p id="ayuda-descripcion" class="pista-campo">Evita incluir contraseñas o información bancaria.</p>
+      <span class="contador-caracteres">{{ formulario.get('descripcion')?.value?.length || 0 }}/500</span>
+    </div>
+    <p id="error-descripcion" class="error" *ngIf="campoInvalido('descripcion')" role="alert">
+      <span *ngIf="tieneError('descripcion', 'required')">Cuéntanos brevemente qué apoyo buscas.</span>
+      <span *ngIf="tieneError('descripcion', 'longitudRecortada')">El detalle debe tener entre 10 y 500 caracteres, sin contar espacios al inicio o al final.</span>
     </p>
   </div>
 
-  <div class="campo campo-corto">
-    <label for="fecha">Fecha de la solicitud</label>
-    <input id="fecha" type="date" formControlName="fecha" />
-    <p class="error" *ngIf="campoInvalido('fecha')">La fecha es obligatoria.</p>
-  </div>
-
-  <button type="submit" [disabled]="enviando">
-    {{ enviando ? 'Enviando solicitud…' : 'Registrar solicitud' }}
-  </button>
-</form>
-
-<div class="toast toast-exito" *ngIf="mensajeExito && ultimoId">
-  <p class="toast-titulo">Solicitud recibida</p>
-  <p class="toast-texto">
-    Tu número de seguimiento es <strong>{{ ultimoId }}</strong>. Úsalo en la ventanilla de seguimiento.
+  <p id="privacidad-descripcion" class="aviso-privacidad">
+    <span aria-hidden="true">i</span>
+    El nombre y la identidad se guardan en el expediente y solo deben estar disponibles para personal autorizado. Esta propuesta está sujeta a validación institucional y no debe usarse con datos reales todavía.
   </p>
-  <a class="toast-boton" [routerLink]="['/seguimiento']" [queryParams]="{ numero: ultimoId }">
-    Ir al seguimiento
-  </a>
-</div>
 
-<div class="toast toast-error" *ngIf="errorGeneral">
-  <p class="toast-texto">{{ errorGeneral }}</p>
-</div>
+  <p class="mensaje-error" *ngIf="errorGeneral" role="alert">{{ errorGeneral }}</p>
+
+  <div class="formulario-acciones">
+    <button type="submit" [disabled]="enviando">
+      <span>{{ enviando ? 'Enviando solicitud…' : 'Enviar solicitud' }}</span>
+      <span aria-hidden="true" *ngIf="!enviando">→</span>
+    </button>
+    <span class="formulario-seguridad">No necesitas adjuntar documentos en este paso.</span>
+  </div>
+</form>

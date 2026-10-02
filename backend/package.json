@@ -6,7 +6,8 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/client.test.js"
+    "test": "node test/client.test.js",
+    "backup": "node scripts/backup.js"
   },
   "engines": {
     "node": ">=18"

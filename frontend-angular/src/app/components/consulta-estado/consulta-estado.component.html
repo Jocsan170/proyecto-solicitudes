@@ -1,50 +1,77 @@
 <div class="consulta-estado">
-  <p class="kicker-seccion">Consulta por número</p>
-  <h2>Estado y comunicación de tu trámite</h2>
-  <p class="texto-ayuda">
-    Ingresa el número de seguimiento que recibiste al registrar la solicitud.
-  </p>
-
-  <form class="fila-consulta" (ngSubmit)="consultar()">
-    <label class="sr-only" for="numero-seguimiento">Número de seguimiento</label>
-    <input
-      id="numero-seguimiento"
-      type="text"
-      name="numero"
-      inputmode="numeric"
-      placeholder="Ejemplo: 12"
-      [(ngModel)]="numero"
-    />
-    <button type="submit" [disabled]="buscando || !numero.trim()">
-      {{ buscando ? 'Consultando…' : 'Consultar estado' }}
-    </button>
-  </form>
-
-  <div class="resultado-consulta" *ngIf="resultado as s">
-    <p class="resultado-kicker">Expediente {{ s.id }}</p>
-    <p class="resultado-titulo">{{ s.titulo }}</p>
-    <p class="resultado-detalle">Fecha de registro: {{ s.fecha }}</p>
-    <span
-      class="estado"
-      [class.estado-pendiente]="s.estado === 'pendiente'"
-      [class.estado-atendida]="s.estado === 'atendida'"
-    >
-      {{ s.estado === 'atendida' ? 'Atendida' : 'En trámite' }}
-    </span>
-    <p class="resultado-lectura" *ngIf="s.estado === 'pendiente'">
-      Tu solicitud fue recibida y está en revisión por el equipo institucional.
-    </p>
-    <p class="resultado-lectura" *ngIf="s.estado === 'atendida'">
-      Esta solicitud ya fue atendida. Si necesitas un nuevo apoyo, registra otra solicitud.
-    </p>
+  <div class="consulta-encabezado">
+    <p class="kicker-seccion">Consulta de trámite</p>
+    <h2>¿Dónde va tu solicitud?</h2>
+    <p class="texto-ayuda">Ingresa el código privado de tu comprobante para ver el avance y continuar la conversación.</p>
   </div>
 
-  <p class="mensaje-info" *ngIf="yaConsulto && noEncontrada">
-    No encontramos un trámite con ese número. Verifica que lo hayas escrito tal como
-    aparece en tu comprobante.
+  <form class="fila-consulta" (ngSubmit)="consultar()">
+    <label for="numero-seguimiento">Número de gestión</label>
+    <div class="consulta-controles">
+      <input
+        id="numero-seguimiento"
+        type="text"
+        name="numero"
+        inputmode="text"
+        autocomplete="off"
+        maxlength="19"
+        required
+        placeholder="Ej. 4821-6305-9174"
+        aria-label="Código privado de seguimiento"
+        [(ngModel)]="numero"
+        aria-describedby="ayuda-numero"
+      />
+      <button type="submit" [disabled]="buscando || !numero.trim()">
+        {{ buscando ? 'Verificando…' : 'Ver estado' }}
+        <span aria-hidden="true" *ngIf="!buscando">→</span>
+      </button>
+    </div>
+    <p id="ayuda-numero" class="pista-campo">El nuevo número tiene 12 dígitos. Puedes escribirlo con o sin guiones.</p>
+  </form>
+
+  <p class="mensaje-info consulta-cargando" *ngIf="buscando" role="status" aria-live="polite">Estamos buscando tu solicitud…</p>
+
+  <section class="resultado-consulta" *ngIf="resultado as s" aria-live="polite">
+    <div class="resultado-cabecera">
+      <div>
+        <p class="resultado-kicker">Código de gestión {{ formatearCodigo(s.id) }}</p>
+        <h3>Estado de tu trámite</h3>
+        <p class="resultado-detalle">Registrada el {{ s.fecha | date:'d MMMM y' }}</p>
+      </div>
+      <span class="estado" [class.estado-pendiente]="s.estado === 'pendiente'" [class.estado-atendida]="s.estado === 'atendida'">
+        <span class="estado-punto" aria-hidden="true"></span>
+        {{ s.estado === 'atendida' ? 'Atendida' : 'En trámite' }}
+      </span>
+    </div>
+
+    <p class="resultado-lectura" *ngIf="s.estado === 'pendiente'">
+      Recibimos tu solicitud. El equipo institucional la revisará y actualizará aquí su estado.
+    </p>
+    <p class="resultado-lectura" *ngIf="s.estado === 'atendida'">
+      Esta solicitud figura como atendida. Si tu consulta continúa, puedes escribir por el chat de seguimiento.
+    </p>
+
+    <section class="historial-estados" *ngIf="s.historialEstados?.length" aria-label="Historial de estados">
+      <h4>Avance del trámite</h4>
+      <ol>
+        <li *ngFor="let evento of s.historialEstados; let ultimo = last" [class.historial-actual]="ultimo">
+          <span class="historial-punto" aria-hidden="true"></span>
+          <div>
+            <strong>{{ evento.estado === 'atendida' ? 'Solicitud atendida' : 'Solicitud recibida' }}</strong>
+            <time [attr.datetime]="evento.fecha">{{ evento.fecha | date:'d MMM y, HH:mm' }}</time>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <app-chat-tramite [numeroGestion]="s.id" [tokenSeguimiento]="tokenSeguimiento" [solicitudVerificada]="s" rol="ciudadano"></app-chat-tramite>
+  </section>
+
+  <p class="mensaje-info consulta-vacia" *ngIf="yaConsulto && noEncontrada" role="status">
+    No fue posible verificar ese código. Revisa que esté completo e inténtalo de nuevo.
   </p>
-
-  <p class="mensaje-error" *ngIf="errorConsulta">{{ errorConsulta }}</p>
-
-  <app-chat-tramite *ngIf="resultado" [numeroGestion]="resultado.id" rol="ciudadano"></app-chat-tramite>
+  <div class="mensaje-error" *ngIf="errorConsulta" role="alert">
+    <p>{{ errorConsulta }}</p>
+    <a *ngIf="codigoInvalido" routerLink="/">Aún no tengo un número: registrar solicitud</a>
+  </div>
 </div>

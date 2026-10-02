@@ -12,20 +12,25 @@
   <header class="barra-servicio">
     <div class="barra-interna">
       <a class="marca-servicio" routerLink="/">
-        <img class="logo" src="assets/senprende.jpg" alt="Escudo institucional de SENPRENDE" />
+        <img class="logo" src="assets/senprende.jpg" alt="" />
         <div>
-          <p class="marca-institucion">SENPRENDE</p>
-          <p class="marca-nombre">Ventanilla de solicitudes</p>
+          <p class="marca-institucion">Atención institucional</p>
+          <p class="marca-nombre">Ventanilla digital</p>
         </div>
       </a>
 
-      <nav class="nav-servicio" aria-label="Secciones del trámite">
-        <a routerLink="/" routerLinkActive="nav-activo" [routerLinkActiveOptions]="{ exact: true }">Registrar solicitud</a>
-        <a routerLink="/seguimiento" routerLinkActive="nav-activo">Seguimiento</a>
-        <a href="http://localhost:3001/solicitudes" target="_blank" rel="noopener">Portal público</a>
+      <button class="nav-menu-boton" type="button" (click)="menuAbierto = !menuAbierto" [attr.aria-expanded]="menuAbierto" aria-controls="nav-tramite">
+        <span class="sr-only">{{ menuAbierto ? 'Cerrar menú' : 'Abrir menú' }}</span>
+        <span class="nav-menu-linea"></span><span class="nav-menu-linea"></span><span class="nav-menu-linea"></span>
+      </button>
+
+      <nav id="nav-tramite" class="nav-servicio" [class.nav-servicio-abierto]="menuAbierto" aria-label="Secciones del trámite">
+        <a routerLink="/" routerLinkActive="nav-activo" [routerLinkActiveOptions]="{ exact: true }" (click)="menuAbierto = false">Registrar solicitud</a>
+        <a routerLink="/seguimiento" routerLinkActive="nav-activo" (click)="menuAbierto = false">Seguimiento</a>
       </nav>
 
-      <a class="enlace-institucional" routerLink="/gestion">Acceso institucional</a>
+      <a class="enlace-portal-fijo" [href]="portalPublicoUrl" target="_self">Portal público</a>
+      <a class="enlace-institucional" routerLink="/gestion" (click)="menuAbierto = false">Acceso institucional</a>
     </div>
   </header>
 
@@ -37,7 +42,7 @@
     <div class="pie-interno">
       <div>
         <p class="pie-marca">SENPRENDE</p>
-        <p>Servicio nacional de emprendimiento y de pequeñas y medianas empresas.</p>
+        <p>Servicio Nacional de Emprendimiento y de Pequeños Negocios de Honduras.</p>
       </div>
       <div>
         <p class="pie-marca">Contacto</p>
@@ -46,10 +51,10 @@
         <p>2242-8101</p>
       </div>
       <div>
-        <p class="pie-marca">Horario de referencia</p>
-        <p>Lunes a viernes, 8:00 a. m. a 4:00 p. m.</p>
-        <p>Este canal digital permanece disponible las 24 horas.</p>
+        <p class="pie-marca">Seguimiento</p>
+        <p>Guarda tu número de gestión para consultar el avance de la solicitud.</p>
       </div>
     </div>
   </footer>
+  <p class="pie-propuesta">Propuesta de servicio digital para evaluación institucional.</p>
 </div>

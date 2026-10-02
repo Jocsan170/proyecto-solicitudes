@@ -11,13 +11,29 @@ export interface MensajeTramite {
 
 export interface Solicitud {
   id: string;
+  numeroGestion: string;
+  nombreSolicitante: string;
+  identidad: string;
   titulo: string;
   descripcion: string;
   fecha: string;
   estado: EstadoSolicitud;
+  historialEstados?: { estado: EstadoSolicitud; fecha: string }[];
   creadaEn?: string;
   leidaPorGestor?: boolean;
   mensajes?: MensajeTramite[];
+}
+
+export interface SolicitudPublica {
+  id: string;
+  fecha: string;
+  estado: EstadoSolicitud;
+  historialEstados?: { estado: EstadoSolicitud; fecha: string }[];
+}
+
+export interface AccesoSeguimiento {
+  solicitud: SolicitudPublica;
+  token: string;
 }
 
 export interface NotificacionBandeja {

@@ -1,9 +1,17 @@
 import { Component, EventEmitter, Output } from '@angular/core';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { Solicitud } from '../../models/solicitud.model';
+import { RespuestaApi, Solicitud } from '../../models/solicitud.model';
 import { SolicitudesService } from '../../services/solicitudes.service';
+import { formatearNumeroGestion as formatearCodigo } from '../../utils/numero-gestion';
+
+function longitudRecortada(minimo: number, maximo: number): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    const longitud = typeof control.value === 'string' ? control.value.trim().length : 0;
+    return longitud >= minimo && longitud <= maximo ? null : { longitudRecortada: true };
+  };
+}
 
 @Component({
   selector: 'app-solicitud-form',
@@ -16,20 +24,19 @@ export class SolicitudFormComponent {
   @Output() creada = new EventEmitter<Solicitud>();
 
   enviando = false;
-  mensajeExito: string | null = null;
   errorGeneral: string | null = null;
   ultimoId: string | null = null;
   copiado = false;
-
-  private temporizadorToast: ReturnType<typeof setTimeout> | null = null;
+  errorCopiado = false;
 
   formulario: FormGroup;
 
   constructor(private fb: FormBuilder, private solicitudesService: SolicitudesService) {
     this.formulario = this.fb.group({
-      titulo: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(100)]],
-      descripcion: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(500)]],
-      fecha: [new Date().toISOString().slice(0, 10), [Validators.required]],
+      nombreSolicitante: ['', [Validators.required, longitudRecortada(3, 100)]],
+      identidad: ['', [Validators.required, Validators.pattern(/^[0-9-]{8,20}$/)]],
+      titulo: ['', [Validators.required, longitudRecortada(3, 100)]],
+      descripcion: ['', [Validators.required, longitudRecortada(10, 500)]],
     });
   }
 
@@ -45,29 +52,36 @@ export class SolicitudFormComponent {
     return !!control && control.hasError(tipoError);
   }
 
-  copiarNumero(): void {
+  async copiarNumero(): Promise<void> {
     if (!this.ultimoId) return;
-    navigator.clipboard
-      ?.writeText(this.ultimoId)
-      .then(() => {
-        this.copiado = true;
-        setTimeout(() => (this.copiado = false), 2000);
-      })
-      .catch(() => {
-        /* si el navegador bloquea el portapapeles, el número ya está visible en el mensaje */
-      });
-  }
+    const codigo = this.formatearNumeroGestion(this.ultimoId);
+    this.errorCopiado = false;
 
-  private mostrarToast(): void {
-    if (this.temporizadorToast) clearTimeout(this.temporizadorToast);
-    this.temporizadorToast = setTimeout(() => {
-      this.mensajeExito = null;
-      this.errorGeneral = null;
-    }, 7000);
+    try {
+      if (navigator.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(codigo);
+      } else {
+        // Alternativa para navegadores que no habilitan la API del portapapeles.
+        const campoTemporal = document.createElement('textarea');
+        campoTemporal.value = codigo;
+        campoTemporal.setAttribute('readonly', '');
+        campoTemporal.style.position = 'fixed';
+        campoTemporal.style.opacity = '0';
+        document.body.appendChild(campoTemporal);
+        campoTemporal.select();
+        const copiado = document.execCommand('copy');
+        campoTemporal.remove();
+        if (!copiado) throw new Error('El navegador no permitió copiar el código.');
+      }
+
+      this.copiado = true;
+      setTimeout(() => (this.copiado = false), 2500);
+    } catch {
+      this.errorCopiado = true;
+    }
   }
 
   enviar(): void {
-    this.mensajeExito = null;
     this.errorGeneral = null;
 
     if (this.formulario.invalid) {
@@ -76,22 +90,32 @@ export class SolicitudFormComponent {
     }
 
     this.enviando = true;
-    const { titulo, descripcion, fecha } = this.formulario.getRawValue();
+    this.ultimoId = null;
+    const { nombreSolicitante, identidad, titulo, descripcion } = this.formulario.getRawValue();
 
-    this.solicitudesService.crear({ titulo, descripcion, fecha }).subscribe({
-      next: (respuesta: any) => {
+    this.solicitudesService.crear({ nombreSolicitante, identidad, titulo, descripcion }).subscribe({
+      next: (respuesta: RespuestaApi<Solicitud> & { numeroGestion?: string }) => {
         this.enviando = false;
-        if (respuesta.success) {
-          this.ultimoId = respuesta.data.id;
-          this.mensajeExito = 'Solicitud registrada correctamente.';
-          this.formulario.reset({
-            titulo: '',
-            descripcion: '',
-            fecha: new Date().toISOString().slice(0, 10),
-          });
-          this.creada.emit(respuesta.data);
-          this.mostrarToast();
+        if (respuesta.success === false) {
+          this.errorGeneral = respuesta.error.mensaje;
+          return;
         }
+
+        const datos = respuesta.data as Solicitud & { solicitud?: Solicitud; codigoGestion?: string };
+        const solicitud = datos?.solicitud ?? datos;
+        const numeroGestion = respuesta.numeroGestion || solicitud?.numeroGestion || datos?.codigoGestion;
+        if (!numeroGestion) {
+          this.errorGeneral = 'El servidor confirmó el registro, pero no entregó el número de gestión. No vuelvas a enviar esta solicitud; el equipo de atención debe recuperar el código del expediente.';
+          return;
+        }
+
+        const solicitudConCodigo: Solicitud = { ...solicitud, numeroGestion };
+        this.ultimoId = numeroGestion;
+        this.copiado = false;
+        this.errorCopiado = false;
+        this.formulario.reset({ nombreSolicitante: '', identidad: '', titulo: '', descripcion: '' });
+        this.creada.emit(solicitudConCodigo);
+        setTimeout(() => document.getElementById('comprobante-solicitud')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
       },
       error: (respuesta: any) => {
         this.enviando = false;
@@ -101,8 +125,11 @@ export class SolicitudFormComponent {
         } else {
           this.errorGeneral = respuesta?.error?.mensaje ?? 'Ocurrió un error inesperado.';
         }
-        this.mostrarToast();
       },
     });
+  }
+
+  formatearNumeroGestion(numero: string): string {
+    return formatearCodigo(numero);
   }
 }

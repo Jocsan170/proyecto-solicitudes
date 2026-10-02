@@ -1,6 +1,8 @@
 const http = require('http');
+const crypto = require('crypto');
 const { URL } = require('url');
-const store = require('./src/data/store');
+const store = require('./src/store');
+const { responderWilliams } = require('./src/williams');
 const { identificar, tienePermiso } = require('./src/middlewares/auth');
 const {
   validarCreacion,
@@ -10,6 +12,8 @@ const {
 } = require('./src/middlewares/validate');
 
 const PUERTO = process.env.PUERTO || 3000;
+const SECRETO_SEGUIMIENTO = process.env.SEGUIMIENTO_TOKEN_SECRET || crypto.randomBytes(32).toString('hex');
+const intentosSeguimiento = new Map();
 
 function enviarJSON(res, status, cuerpo) {
   const texto = JSON.stringify(cuerpo);
@@ -46,12 +50,59 @@ const RUTA_ESTADO = /^\/api\/solicitudes\/([^/]+)\/estado$/;
 const RUTA_MENSAJES = /^\/api\/solicitudes\/([^/]+)\/mensajes$/;
 const RUTA_LECTURA = /^\/api\/solicitudes\/([^/]+)\/lectura$/;
 
+const conversacionesWilliamsPorIp = new Map();
+
+function limitarConversacionWilliams(ip) {
+  const ahora = Date.now();
+  const recientes = (conversacionesWilliamsPorIp.get(ip) || []).filter((fecha) => ahora - fecha < 60_000);
+  if (recientes.length >= 20) return false;
+  recientes.push(ahora);
+  conversacionesWilliamsPorIp.set(ip, recientes);
+  return true;
+}
+
 function aplicarCORS(req, res) {
   // Necesario porque Angular (p. ej. localhost:4200) y Nuxt (p. ej.
   // localhost:3001) corren en un puerto distinto al de esta API.
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Seguimiento-Token');
+}
+
+function permitirConsultaSeguimiento(ip) {
+  const ahora = Date.now();
+  const recientes = (intentosSeguimiento.get(ip) || []).filter((fecha) => ahora - fecha < 15 * 60_000);
+  if (recientes.length >= 8) return false;
+  recientes.push(ahora);
+  intentosSeguimiento.set(ip, recientes);
+  return true;
+}
+
+function crearTokenSeguimiento(id) {
+  const payload = Buffer.from(JSON.stringify({ id: String(id), exp: Date.now() + 30 * 60_000 })).toString('base64url');
+  const firma = crypto.createHmac('sha256', SECRETO_SEGUIMIENTO).update(payload).digest('base64url');
+  return `${payload}.${firma}`;
+}
+
+function idDesdeTokenSeguimiento(token) {
+  if (typeof token !== 'string') return null;
+  const partes = token.split('.');
+  if (partes.length !== 2) return false;
+  const [payload, firma] = partes;
+  const esperada = crypto.createHmac('sha256', SECRETO_SEGUIMIENTO).update(payload).digest();
+  let recibida;
+  try { recibida = Buffer.from(firma, 'base64url'); } catch (_err) { return false; }
+  if (esperada.length !== recibida.length || !crypto.timingSafeEqual(esperada, recibida)) return false;
+  try {
+    const datos = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    return typeof datos.id === 'string' && Number.isFinite(datos.exp) && datos.exp > Date.now() ? datos.id : null;
+  } catch (_err) {
+    return null;
+  }
+}
+
+function tokenSeguimientoValido(token, id) {
+  return idDesdeTokenSeguimiento(token) === String(id);
 }
 
 async function manejarPeticion(req, res) {
@@ -67,10 +118,33 @@ async function manejarPeticion(req, res) {
   const usuario = identificar(req);
 
   try {
+    // POST /api/williams — asistente informativo restringido a fuentes oficiales.
+    if (req.method === 'POST' && pathname === '/api/williams') {
+      const ip = req.socket.remoteAddress || 'desconocida';
+      if (!limitarConversacionWilliams(ip)) {
+        return enviarJSON(res, 429, {
+          success: false,
+          error: { codigo: 'LIMITE_CONSULTAS', mensaje: 'Espera un momento antes de enviar otra pregunta.' },
+        });
+      }
+      const body = await leerCuerpo(req);
+      if (typeof body.pregunta !== 'string' || !body.pregunta.trim() || body.pregunta.length > 1000) {
+        return enviarJSON(res, 400, {
+          success: false,
+          error: { codigo: 'PREGUNTA_INVALIDA', mensaje: 'Escribe una pregunta de hasta 1,000 caracteres.' },
+        });
+      }
+      const historial = Array.isArray(body.historial)
+        ? body.historial.slice(-8).filter((item) => item && ['user', 'assistant'].includes(item.role) && typeof item.content === 'string')
+        : [];
+      const data = await responderWilliams({ pregunta: body.pregunta.trim(), historial });
+      return enviarJSON(res, 200, { success: true, data });
+    }
+
     // POST /api/solicitudes
     if (req.method === 'POST' && pathname === '/api/solicitudes') {
       const body = await leerCuerpo(req);
-      const errores = validarCreacion(body);
+      const errores = validarCreacion(body, { requerirFecha: false });
       if (errores.length > 0) {
         return enviarJSON(res, 400, {
           success: false,
@@ -78,49 +152,47 @@ async function manejarPeticion(req, res) {
         });
       }
       const solicitud = store.crear({
+        nombreSolicitante: body.nombreSolicitante.trim(),
+        identidad: body.identidad.trim(),
         titulo: body.titulo.trim(),
         descripcion: body.descripcion.trim(),
-        fecha: body.fecha,
+        fecha: body.fecha || new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Tegucigalpa' }).format(new Date()),
       });
       return enviarJSON(res, 201, {
         success: true,
         mensaje: 'Solicitud registrada correctamente.',
+        // También se entrega en la raíz para clientes que consumen el comprobante
+        // sin depender de la forma interna del objeto de la solicitud.
+        numeroGestion: solicitud.numeroGestion,
         data: solicitud,
       });
     }
 
-    // GET /api/solicitudes/publicas/listado[?estado=pendiente|atendida]
-    // Vista pública, sin autenticación. Sin filtro devuelve todas (para
-    // que el ciudadano vea qué está en trámite y qué ya se resolvió),
-    // siempre con campos mínimos: nunca expone la descripción completa.
-    if (req.method === 'GET' && pathname === '/api/solicitudes/publicas/listado') {
-      const estado = url.searchParams.get('estado') || undefined;
-      const errores = validarFiltroEstado(estado);
-      if (errores.length > 0) {
-        return enviarJSON(res, 400, {
-          success: false,
-          error: { codigo: 'FILTRO_INVALIDO', mensaje: 'El filtro de estado no es válido.', detalles: errores },
-        });
+    // POST /api/solicitudes/publicas/consulta — el código aleatorio actúa como
+    // credencial de acceso individual; nunca se puede enumerar la bandeja.
+    if (req.method === 'POST' && pathname === '/api/solicitudes/publicas/consulta') {
+      const ip = req.socket.remoteAddress || 'desconocida';
+      if (!permitirConsultaSeguimiento(ip)) {
+        return enviarJSON(res, 429, { success: false, error: { codigo: 'LIMITE_CONSULTAS', mensaje: 'Has realizado varias consultas. Espera unos minutos e inténtalo de nuevo.' } });
       }
-      const resultados = store.listar(estado).map(({ id, titulo, fecha, estado }) => ({ id, titulo, fecha, estado }));
-      return enviarJSON(res, 200, { success: true, total: resultados.length, data: resultados });
-    }
-
-    // GET /api/solicitudes/publicas/:id — detalle público (mismos campos
-    // mínimos), para que el ciudadano consulte el estado de un número
-    // de seguimiento sin necesitar token.
-    let coincidenciaPublica = pathname.match(/^\/api\/solicitudes\/publicas\/([^/]+)$/);
-    if (req.method === 'GET' && coincidenciaPublica) {
-      const id = decodeURIComponent(coincidenciaPublica[1]);
-      const solicitud = store.obtenerPorId(id);
+      const body = await leerCuerpo(req);
+      const numeroGestion = typeof body.numeroGestion === 'string' ? body.numeroGestion.replace(/[-\s]/g, '').toUpperCase() : '';
+      const codigoNumericoNuevo = /^\d{12}$/.test(numeroGestion);
+      const codigoAnterior = /^[A-F0-9]{16}$/.test(numeroGestion);
+      const solicitud = (codigoNumericoNuevo || codigoAnterior)
+        ? store.obtenerPorNumeroGestion(numeroGestion)
+        : null;
       if (!solicitud) {
-        return enviarJSON(res, 404, {
-          success: false,
-          error: { codigo: 'NO_ENCONTRADA', mensaje: `No existe una solicitud con número "${id}".` },
-        });
+        return enviarJSON(res, 404, { success: false, error: { codigo: 'NO_ENCONTRADA', mensaje: 'No fue posible verificar el número de gestión. Revísalo e inténtalo de nuevo.' } });
       }
-      const { id: idPub, titulo, fecha, estado } = solicitud;
-      return enviarJSON(res, 200, { success: true, data: { id: idPub, titulo, fecha, estado } });
+      const { numeroGestion: codigo, fecha, estado, historialEstados = [] } = solicitud;
+      return enviarJSON(res, 200, {
+        success: true,
+        data: {
+          solicitud: { id: codigo, fecha, estado, historialEstados },
+          token: crearTokenSeguimiento(codigo),
+        },
+      });
     }
 
     // GET /api/solicitudes/notificaciones — bandeja del gestor
@@ -135,11 +207,20 @@ async function manejarPeticion(req, res) {
       return enviarJSON(res, 200, { success: true, total: avisos.length, data: avisos });
     }
 
-    // GET/POST /api/solicitudes/:id/mensajes — chat del número de gestión
+    // GET/POST /api/solicitudes/:id/mensajes — chat del gestor
+    // GET/POST /api/solicitudes/seguimiento/mensajes — chat del ciudadano, identificado por token
     let coincidenciaMensajes = pathname.match(RUTA_MENSAJES);
-    if (coincidenciaMensajes && (req.method === 'GET' || req.method === 'POST')) {
-      const id = decodeURIComponent(coincidenciaMensajes[1]);
-      const existente = store.obtenerPorId(id);
+    const rutaMensajesSeguimiento = pathname === '/api/solicitudes/seguimiento/mensajes';
+    if ((coincidenciaMensajes || rutaMensajesSeguimiento) && (req.method === 'GET' || req.method === 'POST')) {
+      const token = req.headers['x-seguimiento-token'];
+      const esGestor = !rutaMensajesSeguimiento && tienePermiso(usuario, 'gestor');
+      const id = rutaMensajesSeguimiento ? idDesdeTokenSeguimiento(token) : decodeURIComponent(coincidenciaMensajes[1]);
+      if (rutaMensajesSeguimiento ? !id : (!esGestor && !tokenSeguimientoValido(token, id))) {
+        return enviarJSON(res, 404, { success: false, error: { codigo: 'NO_ENCONTRADA', mensaje: 'No fue posible verificar el acceso a esta conversación.' } });
+      }
+      const existente = rutaMensajesSeguimiento
+        ? store.obtenerPorNumeroGestion(id)
+        : esGestor ? store.obtenerPorId(id) : store.obtenerPorNumeroGestion(id);
       if (!existente) {
         return enviarJSON(res, 404, {
           success: false,
@@ -147,7 +228,7 @@ async function manejarPeticion(req, res) {
         });
       }
       if (req.method === 'GET') {
-        return enviarJSON(res, 200, { success: true, data: store.listarMensajes(id) });
+        return enviarJSON(res, 200, { success: true, data: store.listarMensajes(existente.id) });
       }
       const body = await leerCuerpo(req);
       const errores = validarMensaje(body);
@@ -158,7 +239,7 @@ async function manejarPeticion(req, res) {
         });
       }
       const autor = tienePermiso(usuario, 'gestor') ? 'gestor' : 'ciudadano';
-      const mensaje = store.agregarMensaje(id, { autor, texto: body.texto.trim() });
+      const mensaje = store.agregarMensaje(existente.id, { autor, texto: body.texto.trim() });
       return enviarJSON(res, 201, {
         success: true,
         mensaje: 'Mensaje enviado.',
@@ -188,6 +269,12 @@ async function manejarPeticion(req, res) {
 
     // GET /api/solicitudes?estado=&buscar=&orden=recientes|antiguas
     if (req.method === 'GET' && pathname === '/api/solicitudes') {
+      if (!tienePermiso(usuario, 'gestor')) {
+        return enviarJSON(res, 403, {
+          success: false,
+          error: { codigo: 'SIN_PERMISOS', mensaje: 'El listado completo requiere el rol "gestor".' },
+        });
+      }
       const estado = url.searchParams.get('estado') || undefined;
       const buscar = url.searchParams.get('buscar') || undefined;
       const orden = url.searchParams.get('orden') || undefined;
@@ -298,6 +385,12 @@ async function manejarPeticion(req, res) {
     // GET /api/solicitudes/:id
     if (req.method === 'GET' && coincidencia) {
       const id = decodeURIComponent(coincidencia[1]);
+      if (!tienePermiso(usuario, 'gestor')) {
+        return enviarJSON(res, 403, {
+          success: false,
+          error: { codigo: 'SIN_PERMISOS', mensaje: 'El detalle privado requiere el rol "gestor".' },
+        });
+      }
       const solicitud = store.obtenerPorId(id);
       if (!solicitud) {
         return enviarJSON(res, 404, {

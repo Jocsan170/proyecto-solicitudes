@@ -6,6 +6,8 @@ import { EstadoSolicitud, NotificacionBandeja, Solicitud } from '../../models/so
 import { SolicitudesService } from '../../services/solicitudes.service';
 import { AuthService } from '../../services/auth.service';
 import { ChatTramiteComponent } from '../chat-tramite/chat-tramite.component';
+import { obtenerUrlPortalPublico } from '../../services/portal-publico-url';
+import { formatearNumeroGestion } from '../../utils/numero-gestion';
 
 type FiltroMesa = EstadoSolicitud | 'todas';
 
@@ -34,7 +36,7 @@ export class MesaTrabajoComponent implements OnInit, OnDestroy {
   notificaciones: NotificacionBandeja[] = [];
   panelAvisos = false;
 
-  readonly portalPublicoUrl = 'http://localhost:3001/solicitudes';
+  readonly portalPublicoUrl = obtenerUrlPortalPublico();
 
   private intervalo: ReturnType<typeof setInterval> | null = null;
 
@@ -58,15 +60,32 @@ export class MesaTrabajoComponent implements OnInit, OnDestroy {
     return this.solicitudes.filter((s) => s.estado === 'pendiente').length;
   }
 
+  get atendidas(): number {
+    return this.solicitudes.filter((s) => s.estado === 'atendida').length;
+  }
+
+  get nuevas(): number {
+    return this.solicitudes.filter((s) => this.esNueva(s)).length;
+  }
+
+  get conMensajesPendientes(): number {
+    return this.solicitudes.filter((s) => this.mensajesPendientes(s) > 0).length;
+  }
+
   get avisosNuevos(): number {
     return this.notificaciones.length;
+  }
+
+  formatearCodigo(numero: string): string {
+    return formatearNumeroGestion(numero);
   }
 
   get cola(): Solicitud[] {
     const termino = this.busqueda.trim().toLowerCase();
     return this.solicitudes.filter((s) => {
       const estadoOk = this.filtro === 'todas' ? true : s.estado === this.filtro;
-      const busquedaOk = !termino || s.titulo.toLowerCase().includes(termino) || s.id.includes(termino);
+      const busquedaOk = !termino || s.titulo.toLowerCase().includes(termino) ||
+        s.nombreSolicitante?.toLowerCase().includes(termino) || s.numeroGestion?.toLowerCase().includes(termino) || s.id.includes(termino);
       return estadoOk && busquedaOk;
     });
   }

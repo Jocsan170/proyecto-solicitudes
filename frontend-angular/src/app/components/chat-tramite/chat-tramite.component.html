@@ -1,41 +1,111 @@
 <section class="chat-tramite">
-  <header class="chat-encabezado">
-    <div>
-      <p class="chat-kicker">Número de gestión {{ numeroGestion }}</p>
-      <h3>{{ tituloRol }}</h3>
+  <ng-container *ngIf="rol === 'ciudadano' && !modoAsesor">
+    <header class="chat-encabezado asistente-encabezado">
+      <div class="williams-identidad">
+        <span class="asistente-avatar" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path d="M12 3v2" />
+            <circle cx="12" cy="2.5" r=".5" />
+            <rect x="4" y="6" width="16" height="14" rx="4" />
+            <path d="M8 13h.01M16 13h.01M9 17h6M2 11v4M22 11v4" />
+          </svg>
+        </span>
+        <div class="williams-identidad-texto">
+          <h3>Williams</h3>
+          <p>Asistente virtual <span class="williams-enlinea"><i></i> En línea</span></p>
+        </div>
+      </div>
+      <div class="williams-encabezado-acciones">
+        <span class="asistente-expediente">Código {{ formatearCodigo(codigoVisible || numeroGestion) }}</span>
+        <button type="button" class="williams-minimizar" (click)="chatMinimizado = !chatMinimizado"
+          [attr.aria-expanded]="!chatMinimizado" aria-label="Minimizar o expandir el chat">
+          {{ chatMinimizado ? '+' : '−' }}
+        </button>
+      </div>
+    </header>
+
+    <ng-container *ngIf="!chatMinimizado">
+      <div class="williams-contexto" *ngIf="solicitud">
+        <span class="williams-contexto-numero">Solicitud #{{ solicitud.id }}</span>
+        <strong>{{ solicitud.titulo }}</strong>
+        <span class="williams-contexto-estado">{{ solicitud.estado === 'atendida' ? 'Atendida' : 'En trámite' }}</span>
+      </div>
+
+      <div class="chat-lista asistente-lista" #listaMensajes aria-live="polite" aria-relevant="additions text">
+        <div *ngFor="let turno of turnos" class="williams-turno"
+          [class.williams-turno-propio]="turno.autor === 'ciudadano'"
+          [class.williams-turno-agente]="turno.autor === 'william'">
+          <span *ngIf="turno.autor === 'william'" class="williams-avatar-mini" aria-hidden="true">W</span>
+          <article class="burbuja"
+            [class.burbuja-propia]="turno.autor === 'ciudadano'"
+            [class.burbuja-ajena]="turno.autor === 'william'">
+            <p class="burbuja-autor">{{ turno.autor === 'william' ? 'Williams' : 'Tú' }}<span> · {{ turno.fecha | date: 'shortTime' }}</span></p>
+            <p class="burbuja-texto">{{ turno.texto }}</p>
+            <ul class="williams-fuentes" *ngIf="turno.sources?.length">
+              <li *ngFor="let fuente of turno.sources"><a [href]="fuente.url" target="_blank" rel="noopener noreferrer">{{ fuente.title }} ↗</a></li>
+            </ul>
+          </article>
+        </div>
+        <div class="williams-turno williams-turno-agente" *ngIf="enviando" aria-live="polite">
+          <span class="williams-avatar-mini" aria-hidden="true">W</span>
+          <div class="williams-escribiendo"><span class="sr-only">Williams está consultando fuentes oficiales</span><i></i><i></i><i></i></div>
+        </div>
+      </div>
+
+      <div class="williams-acciones" *ngIf="turnos.length === 1 && !enviando">
+        <button type="button" (click)="preguntarRapido('¿Qué servicios ofrece SENPRENDE para ayudar a crecer mi negocio?')">🚀 Ayuda para mi negocio</button>
+        <button type="button" (click)="preguntarRapido('Quiero consultar el estado de mi solicitud')">🔎 Consultar estado</button>
+        <button type="button" (click)="preguntarRapido('¿Dónde puedo consultar los requisitos y formatos oficiales para mi trámite?')">📄 Requisitos y formatos</button>
+        <button type="button" (click)="preguntarRapido('Quiero hablar con un asesor sobre mi solicitud')">👤 Hablar con un asesor</button>
+      </div>
+
+      <div class="asistente-decision" *ngIf="esperandoValoracion">
+        <p>¿Te sirvió esta orientación?</p>
+        <button type="button" (click)="valorarAyuda(true)">Sí, continuar</button>
+        <button type="button" (click)="valorarAyuda(false)">No, necesito más ayuda</button>
+      </div>
+      <div class="asistente-decision" *ngIf="esperandoDecisionAsesor">
+        <button type="button" [disabled]="derivando" (click)="solicitarAsesor()">{{ derivando ? 'Enviando al área…' : '👤 Hablar con un asesor' }}</button>
+        <button type="button" (click)="esperandoDecisionAsesor = false">💬 Hacer otra pregunta</button>
+      </div>
+
+      <form class="chat-formulario williams-formulario" (ngSubmit)="enviar()">
+        <label class="sr-only" for="mensaje-{{ numeroGestion }}">Escribe tu pregunta</label>
+        <textarea id="mensaje-{{ numeroGestion }}" name="texto" rows="1" [(ngModel)]="texto"
+          (keydown.enter)="manejarEnter($event)" placeholder="Escribe tu pregunta…"></textarea>
+        <button type="submit" [disabled]="enviando || !texto.trim()" aria-label="Enviar pregunta">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12 20 4l-5 16-3-7-8-1Zm8 1 8-9" /></svg>
+        </button>
+      </form>
+      <p class="williams-ayuda-teclado">Enter para enviar · Shift + Enter para nueva línea</p>
+    </ng-container>
+  </ng-container>
+
+  <ng-container *ngIf="rol === 'gestor' || modoAsesor">
+    <header class="chat-encabezado">
+      <div>
+      <p class="chat-kicker">Código de gestión {{ formatearCodigo(codigoVisible || numeroGestion) }}</p>
+        <h3>{{ tituloRol }}</h3>
+      </div>
+    </header>
+
+    <div class="chat-lista" #listaMensajes>
+      <p class="chat-vacio" *ngIf="!cargando && mensajes.length === 0">Todavía no hay mensajes en este trámite. Escribe el primero para abrir la conversación.</p>
+      <article *ngFor="let m of mensajes" class="burbuja"
+        [class.burbuja-propia]="m.autor === rol" [class.burbuja-ajena]="m.autor !== rol">
+        <p class="burbuja-autor">{{ m.autor === 'gestor' ? 'SENPRENDE' : 'Ciudadano' }}</p>
+        <p class="burbuja-texto">{{ m.texto }}</p>
+        <time class="burbuja-fecha">{{ m.fecha | date: 'short' }}</time>
+      </article>
     </div>
-  </header>
 
-  <div class="chat-lista" #listaMensajes>
-    <p class="chat-vacio" *ngIf="!cargando && mensajes.length === 0">
-      Todavía no hay mensajes en este trámite. Escribe el primero para abrir la conversación.
-    </p>
-
-    <article
-      *ngFor="let m of mensajes"
-      class="burbuja"
-      [class.burbuja-propia]="m.autor === rol"
-      [class.burbuja-ajena]="m.autor !== rol"
-    >
-      <p class="burbuja-autor">{{ m.autor === 'gestor' ? 'SENPRENDE' : 'Ciudadano' }}</p>
-      <p class="burbuja-texto">{{ m.texto }}</p>
-      <time class="burbuja-fecha">{{ m.fecha | date: 'short' }}</time>
-    </article>
-  </div>
-
-  <form class="chat-formulario" (ngSubmit)="enviar()">
-    <label class="sr-only" for="mensaje-{{ numeroGestion }}">Escribe un mensaje</label>
-    <textarea
-      id="mensaje-{{ numeroGestion }}"
-      name="texto"
-      rows="2"
-      [(ngModel)]="texto"
-      [placeholder]="rol === 'gestor' ? 'Responder al ciudadano…' : 'Escribe tu consulta al personal de SENPRENDE…'"
-    ></textarea>
-    <button type="submit" [disabled]="enviando || !texto.trim()">
-      {{ enviando ? 'Enviando…' : 'Enviar' }}
-    </button>
-  </form>
+    <form class="chat-formulario" (ngSubmit)="enviar()">
+      <label class="sr-only" for="mensaje-{{ numeroGestion }}">Escribe un mensaje</label>
+      <textarea id="mensaje-{{ numeroGestion }}" name="texto" rows="2" [(ngModel)]="texto"
+        [placeholder]="rol === 'gestor' ? 'Responder al ciudadano…' : 'Escribe tu consulta al personal de SENPRENDE…'"></textarea>
+      <button type="submit" [disabled]="enviando || !texto.trim()">{{ enviando ? 'Enviando…' : 'Enviar' }}</button>
+    </form>
+  </ng-container>
 
   <p class="error" *ngIf="errorChat">{{ errorChat }}</p>
 </section>

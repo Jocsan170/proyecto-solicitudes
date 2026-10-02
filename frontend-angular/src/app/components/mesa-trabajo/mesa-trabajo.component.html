@@ -13,11 +13,34 @@
         Notificaciones
         <span class="badge-aviso" *ngIf="avisosNuevos > 0">{{ avisosNuevos }}</span>
       </button>
-      <a class="enlace-silencioso" [href]="portalPublicoUrl" target="_blank" rel="noopener">Portal público</a>
+      <a class="enlace-silencioso" [href]="portalPublicoUrl" target="_self">Portal público</a>
       <a class="enlace-silencioso" routerLink="/">Ventanilla ciudadana</a>
       <button type="button" class="boton-secundario" (click)="cerrarSesion()">Cerrar sesión</button>
     </div>
   </header>
+
+  <main class="mesa-panel">
+    <section class="mesa-resumen" aria-label="Resumen de la mesa de trabajo">
+      <div class="mesa-intro">
+        <p class="chat-kicker">GESTIÓN DE SOLICITUDES</p>
+        <h1>Mesa de trabajo</h1>
+        <p>Revisa los casos, da seguimiento a cada conversación y actualiza su estado.</p>
+      </div>
+      <div class="mesa-indicadores">
+        <article class="indicador-mesa indicador-prioridad">
+          <span class="indicador-etiqueta">Pendientes</span><strong>{{ pendientes }}</strong><span>requieren revisión</span>
+        </article>
+        <article class="indicador-mesa">
+          <span class="indicador-etiqueta">Nuevas</span><strong>{{ nuevas }}</strong><span>sin abrir</span>
+        </article>
+        <article class="indicador-mesa">
+          <span class="indicador-etiqueta">Mensajes</span><strong>{{ conMensajesPendientes }}</strong><span>con respuesta por revisar</span>
+        </article>
+        <article class="indicador-mesa">
+          <span class="indicador-etiqueta">Atendidas</span><strong>{{ atendidas }}</strong><span>casos resueltos</span>
+        </article>
+      </div>
+    </section>
 
   <div class="bandeja-avisos" *ngIf="panelAvisos">
     <p class="bandeja-vacia" *ngIf="notificaciones.length === 0">No hay avisos pendientes.</p>
@@ -31,17 +54,18 @@
   <div class="mesa-cuerpo">
     <aside class="mesa-cola">
       <div class="cola-encabezado">
-        <h2>Bandeja</h2>
-        <p>{{ pendientes }} en trámite</p>
+        <div><p class="chat-kicker">TRABAJO ASIGNADO</p><h2>Bandeja de casos</h2></div>
+        <span class="cola-total">{{ cola.length }}</span>
       </div>
 
       <div class="cola-filtros">
-        <button type="button" [class.activo]="filtro === 'pendiente'" (click)="aplicarFiltro('pendiente')">En trámite</button>
-        <button type="button" [class.activo]="filtro === 'atendida'" (click)="aplicarFiltro('atendida')">Atendidas</button>
-        <button type="button" [class.activo]="filtro === 'todas'" (click)="aplicarFiltro('todas')">Todas</button>
+        <button type="button" [class.activo]="filtro === 'pendiente'" (click)="aplicarFiltro('pendiente')">Pendientes <span>{{ pendientes }}</span></button>
+        <button type="button" [class.activo]="filtro === 'atendida'" (click)="aplicarFiltro('atendida')">Atendidas <span>{{ atendidas }}</span></button>
+        <button type="button" [class.activo]="filtro === 'todas'" (click)="aplicarFiltro('todas')">Todas <span>{{ solicitudes.length }}</span></button>
       </div>
 
-      <input class="cola-buscar" type="search" [(ngModel)]="busqueda" placeholder="Buscar por asunto o N.º" />
+      <label class="sr-only" for="buscar-caso">Buscar en la bandeja</label>
+      <input id="buscar-caso" class="cola-buscar" type="search" [(ngModel)]="busqueda" placeholder="Buscar por caso, persona o N.º" />
 
       <p *ngIf="cargando" class="mensaje-info">Cargando expedientes…</p>
       <p *ngIf="errorCarga" class="mensaje-error">{{ errorCarga }}</p>
@@ -49,17 +73,20 @@
 
       <ul class="cola-lista">
         <li *ngFor="let s of cola">
-          <button type="button" class="caso-card" [class.caso-activo]="seleccionada?.id === s.id" (click)="seleccionar(s)">
+          <button type="button" class="caso-card" [class.caso-activo]="seleccionada?.id === s.id" (click)="seleccionar(s)" [attr.aria-current]="seleccionada?.id === s.id ? 'true' : null">
             <div class="caso-meta">
-              <strong>N.º {{ s.id }}</strong>
+              <strong>Expediente interno N.º {{ s.id }}</strong>
               <span class="estado" [class.estado-pendiente]="s.estado === 'pendiente'" [class.estado-atendida]="s.estado === 'atendida'">
                 {{ s.estado === 'atendida' ? 'Atendida' : 'En trámite' }}
               </span>
             </div>
+            <span class="caso-persona">{{ s.nombreSolicitante || 'Solicitante sin nombre' }}</span>
+            <span class="caso-codigo">Código {{ formatearCodigo(s.numeroGestion) }}</span>
             <p class="caso-titulo">{{ s.titulo }}</p>
             <p class="caso-pistas">
+              <span class="caso-fecha">{{ s.fecha | date:'d MMM y':'':'es-HN' }}</span>
               <span *ngIf="esNueva(s)" class="pista-nueva">Nueva</span>
-              <span *ngIf="mensajesPendientes(s) > 0" class="pista-chat">{{ mensajesPendientes(s) }} mensaje(s)</span>
+              <span *ngIf="mensajesPendientes(s) > 0" class="pista-chat">{{ mensajesPendientes(s) }} mensajes</span>
             </p>
           </button>
         </li>
@@ -69,8 +96,10 @@
     <section class="mesa-expediente" *ngIf="seleccionada as caso">
       <header class="expediente-cabeza">
         <div>
-          <p class="chat-kicker">Expediente N.º {{ caso.id }}</p>
+          <p class="chat-kicker">EXPEDIENTE N.º {{ caso.id }}</p>
           <h2>{{ caso.titulo }}</h2>
+          <p class="caso-codigo expediente-codigo">Código entregado al ciudadano: <strong>{{ formatearCodigo(caso.numeroGestion) }}</strong></p>
+          <p class="expediente-subtitulo">{{ caso.estado === 'atendida' ? 'Caso atendido' : 'Pendiente de atención' }} · Ingresado el {{ caso.fecha | date:'d MMMM y':'':'es-HN' }}</p>
         </div>
         <div class="expediente-acciones">
           <button
@@ -97,18 +126,37 @@
       <p class="mensaje-error" *ngIf="errorAccion">{{ errorAccion }}</p>
 
       <article class="expediente-cuerpo">
-        <p class="expediente-fecha">Fecha de la solicitud: {{ caso.fecha }}</p>
+        <div class="expediente-persona">
+          <div><span>PERSONA SOLICITANTE</span><strong>{{ caso.nombreSolicitante || 'Dato no disponible' }}</strong></div>
+          <div><span>NÚMERO DE IDENTIDAD</span><strong>{{ caso.identidad || 'Dato no disponible' }}</strong></div>
+        </div>
+        <h3>Detalle de la solicitud</h3>
         <p class="expediente-detalle">{{ caso.descripcion }}</p>
       </article>
 
-      <app-chat-tramite [numeroGestion]="caso.id" rol="gestor"></app-chat-tramite>
+      <section class="expediente-historial" *ngIf="caso.historialEstados?.length" aria-label="Historial del estado">
+        <div class="expediente-seccion-titulo"><div><p class="chat-kicker">TRAZABILIDAD</p><h3>Actividad del expediente</h3></div><span>{{ caso.historialEstados?.length }} evento{{ caso.historialEstados?.length === 1 ? '' : 's' }}</span></div>
+        <ol>
+          <li *ngFor="let evento of caso.historialEstados; let ultimo = last" [class.historial-actual]="ultimo">
+            <span class="historial-punto" aria-hidden="true"></span>
+            <div><strong>{{ evento.estado === 'atendida' ? 'Solicitud atendida' : 'Solicitud recibida' }}</strong><time>{{ evento.fecha | date:'d MMM y, h:mm a':'':'es-HN' }}</time></div>
+          </li>
+        </ol>
+      </section>
+
+      <div class="seccion-conversacion"><div><p class="chat-kicker">SEGUIMIENTO</p><h3>Conversación del caso</h3></div><p>Responde desde aquí y mantén toda la atención en un mismo expediente.</p></div>
+      <app-chat-tramite [numeroGestion]="caso.id" [codigoVisible]="caso.numeroGestion" rol="gestor"></app-chat-tramite>
     </section>
 
     <section class="mesa-vacio" *ngIf="!seleccionada">
-      <p>Selecciona un expediente de la bandeja para trabajarlo.</p>
-      <p>Las solicitudes nuevas y los mensajes del ciudadano aparecen en notificaciones.</p>
+      <span class="vacio-icono" aria-hidden="true">01</span>
+      <p class="chat-kicker">ESPACIO DE GESTIÓN</p>
+      <h2>Selecciona un caso para comenzar</h2>
+      <p>La bandeja reúne las solicitudes recibidas. Abre una para revisar los datos, responder mensajes y actualizar su estado.</p>
+      <button type="button" class="boton-secundario" (click)="panelAvisos = true">Ver notificaciones <span *ngIf="avisosNuevos">({{ avisosNuevos }})</span></button>
     </section>
   </div>
+  </main>
 </div>
 
 <section class="acceso-mesa" *ngIf="!sesionActiva">
@@ -137,6 +185,7 @@
       <p class="error" *ngIf="errorLogin">{{ errorLogin }}</p>
       <button type="submit">Entrar a la mesa</button>
     </form>
+    <p><a class="enlace-portal-acceso" [href]="portalPublicoUrl" target="_self">Ir al portal público</a></p>
     <p><a routerLink="/">Volver a la ventanilla ciudadana</a></p>
   </div>
 </section>

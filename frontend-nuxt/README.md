@@ -1,50 +1,26 @@
-# Vista pública (Nuxt) — proyecto independiente
+# Portal público SENPRENDE (Nuxt)
 
-Proyecto Nuxt 3 completo y listo para abrir en VS Code. No necesita
-copiarse dentro de otro proyecto.
-
-## Cómo correrlo
+## Desarrollo local
 
 ```bash
 cd frontend-nuxt
 npm install
-npm run dev
-```
-
-Abre `http://localhost:3001` (Nuxt usa el puerto 3000 por defecto,
-pero aquí el backend ya lo ocupa; ver más abajo cómo fijarlo).
-Desde la página de inicio entra a "Ver solicitudes atendidas".
-
-Para fijar el puerto en 3001 puedes correr:
-
-```bash
 npm run dev -- --port 3001
 ```
 
-Requiere que el backend esté corriendo en `http://localhost:3000`
-(ver `../backend`).
+Abre `http://localhost:3001`. La página de inicio presenta la propuesta e incluye a Williams como ayuda guiada, cerrada hasta que la persona toca el robot. Explica SENPRENDE y acompaña con botones grandes por el registro sin recibir mensajes ni datos. `/solicitudes` explica el acceso privado al seguimiento. No existe una lista pública de solicitudes.
 
-## Por qué es "expresamente publicable"
+## Configuración de despliegue
 
-Esta vista consume `/api/solicitudes/publicas/listado`, un endpoint
-sin autenticación que el backend expone aparte de la API
-administrativa, y que:
+Nuxt usa variables públicas de entorno para enlazar la ventanilla Angular y el backend:
 
-- Solo devuelve solicitudes en estado `atendida` (nunca `pendiente`).
-- Solo expone `id`, `titulo`, `fecha` y `estado` — nunca la
-  `descripcion` completa ni ningún dato sensible.
+- `NUXT_PUBLIC_REGISTRO_URL`: dirección de la ventanilla, por ejemplo `https://sitio.ejemplo/registro`.
+- `NUXT_PUBLIC_API_BASE`: dirección base de la API, por ejemplo `https://sitio.ejemplo/api`.
 
-Así, el front público nunca decide qué es publicable filtrando datos
-en el cliente: la API ya entrega exactamente lo que corresponde
-publicar.
+En desarrollo, los valores predeterminados apuntan a `localhost:4200` y `localhost:3000/api`. Para el esquema de rutas de producción preparado en este proyecto, configura `NUXT_PUBLIC_REGISTRO_URL=/registro/` y `NUXT_PUBLIC_API_BASE=/api` antes de compilar/publicar.
 
-## Estados que diferencia la vista
+La consulta de estado y la conversación requieren el código aleatorio de gestión entregado en el comprobante. No existe una lista pública ni consulta por identificadores consecutivos. Las respuestas no exponen nombre, identidad, asunto ni descripción. Los expedientes existentes reciben un código nuevo al iniciar el backend, conservando el resto de sus datos.
 
-- Cargando.
-- Falla del servicio (mensaje de error).
-- Lista vacía (mensaje informativo, no un error).
-- Listado con resultados.
+## Identidad y accesibilidad
 
-## Si la API corre en otro puerto/host
-
-Edita `BASE_URL` en `composables/useSolicitudesPublicas.js`.
+El portal comparte los tonos azul institucional y dorado del emblema, usa estados verdes para los trámites atendidos, cuenta con navegación móvil y admite movimiento reducido del sistema.
